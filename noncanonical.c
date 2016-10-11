@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     
 	int uteis = 0;
     while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf+uteis,255);   /* returns after 5 chars have been input */
+      res = read(fd,buf+uteis,255);   /* returns after 5 chars have  been input */
       //buf[res]=0;               /* so we can printf... */
       uteis+= res;
       if(buf[uteis-1] == '\0')

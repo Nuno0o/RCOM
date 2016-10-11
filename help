@@ -1,0 +1,44 @@
+emissor envia 1 trama de dados e espera confirmacao:
+	 - se recebe confirmacao positiva, retorna;
+	- se nao recebe confirmacao dentro do timeout, reenvia ate n vezes;
+	- se recebe confirmacao negativa reenvia
+
+Recetor recebe trama de dados/informacao e analisa:
+	- se deteta erro no BCC1 nao responde
+	- se deteta erro no BCC2 envia REJ
+	- se nao deteta erro envia RR0 ou RR1
+
+// ----- Exemplo de utilizacao de temporizador: ----
+#include <signal.h>
+
+int flag_alarm = 0, conta_alarm = 0, received = 0,num = 1;
+char buf[10];
+
+void atende_alarm(void){
+	flag_alarm = 1;
+	conta_alarm++;
+	alarm(0);
+	printf("Alarm %d \n", conta_alarm);
+}
+
+void desativa_alarm(void) {
+	alarm(0);
+	conta_alarm = 0;
+	flag_alarm = 0;
+}
+
+main(){
+	void signal(SIGALRM, atende_alarm);
+	while (conta_alarm < 4 && !received)
+	{
+		printf("Introduza um valor, zero para terminar \n");
+		flag_alarm = 0;
+		alarm(3);
+		while (!flag_alarm && !received) {
+			scanf("%d", &num);
+			if (num == 0) received = 1;
+		}
+		if(received) desativa_alarm();
+	}
+}
+
