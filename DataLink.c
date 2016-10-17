@@ -18,62 +18,128 @@
 #define TRANSMITTER 0
 #define RECEIVER 1
 
+//Formato das tramas
 #define FLAG 0x7e
 #define A 0x03
 #define C_SET 0x03
 #define C_UA 0x07
 #define BCC_SET A ^ C_SET
 #define BCC_UA  A ^ C_UA
+#define ESCAPE 0x7d
+
+//Estados da trama
+#define START -1
+#define FLAG_RCV 0
+#define A_RCV 1
+#define C_RCV 2
+#define BCC_RCV 3
+#define STOP_ST 4
+
+//Tipo de trama
+#define TRAMA_ERROR -1
+#define TRAMA_SET 0
+#define TRAMA_UA 1
 
 
 volatile int STOP=FALSE;
-int fd;
 struct termios oldtio,newtio;
 
-char SET[5] = {FLAG,A,C_SET,BCC_SET,FLAG};
-char UA[5] = {FLAG,A,C_UA,BCC_UA,FLAG};
+char SET[6] = {FLAG,A,C_SET,BCC_SET,FLAG,'\0'};
+char UA[6] = {FLAG,A,C_UA,BCC_UA,FLAG};
 
 //---------------------- PROTOTIPOS
-int saveTermios();
-int setTermios();
-int resetTermios();
-int writeToFd(char* buf);
-int readFromFd(char* buf);
+int saveTermios(int filed,struct termios * ter);
+int setTermios(int filed,struct termios * ter);
+int resetTermios(int filed,struct termios * ter);
+int writeToFd(int filed,char* buf,int length);
+//-1 = erro, 0 = set, 1 = ua
+int receiveTrama(int fd);
 
 // -------------------- DEFINICOES
 
+int saveTermios(int filed, struct termios * ter){
+	if ( tcgetattr(filed,ter) == -1) { 
+      perror("tcgetattr");
+      exit(-1);
+    }
+}
+int resetTermios(int filed, struct termios * ter){
+	if ( tcsetattr(filed,TCSANOW,ter) == -1) {
+      perror("tcsetattr");
+      exit(-1);
+    }
+}
+
+int setTermios(int filed,struct termios * ter){
+	bzero(ter, sizeof(*ter));
+    ter->c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    ter->c_iflag = IGNPAR;
+    ter->c_oflag = 0;
+
+    /* set input mode (non-canonical, no echo,...) */
+    ter->c_lflag = 0;
+
+    ter->c_cc[VTIME]    = 0;   /* inter-character timer unused */
+    ter->c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
+
+ 	 /* 
+  	  VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
+  	  leitura do(s) próximo(s) caracter(es)
+  	*/
+
+    tcflush(filed, TCIOFLUSH);
+
+    if ( tcsetattr(filed,TCSANOW,ter) == -1) {
+      perror("tcsetattr");
+      exit(-1);
+    }
+	
+
+    //printf("New termios structure set\n");
+}
+
 int llopen(char* porta, int flag)
 {
+	char buf[255];
 	// abrir porta
-	fd = open(porta, O_RDWR | O_NOCTTY );
+	printf("ola\n %s",porta);
+	int fd = open(porta, O_RDWR | O_NOCTTY );
     if (fd <0) {perror(porta); exit(-1); }
-	
+	printf("ola2\n");
 	// modo canonico
-	saveTermios(&oldtio);
-	setTermios(&newtio,fd);
+	saveTermios(fd,&oldtio);
+	setTermios(fd,&newtio);
 
 	switch(flag){
 
 	case TRANSMITTER:
 	{
 		// enviar SET
-		writeToFd(SET);
+		writeToFd(fd,SET,5);
+		printf("Trama SET enviada\n");
 		
 		// receber UA
-		readFromFd(UA);
+		int res = receiveTrama(fd);
+		printf("Trama:%d\n",res);
 		// ...
-
+		
+		
+	
 		return fd;
 	}
 	break;
 
 	case RECEIVER:
-	{
+	{	
 		// aguardar SET
-		
+		int res = receiveTrama(fd);
+		printf("Trama:%d\n",res);
 		// enviar UA
-		writeToFd(UA);
+		writeToFd(fd,UA,5);
+		printf("Trama UA enviada\n");
 		// ...
+		return fd;
+		
 	}
 
 	break;
@@ -82,128 +148,142 @@ int llopen(char* porta, int flag)
 
 	return -1;
 }
-int saveTermios(){
-	if ( tcgetattr(fd,&oldtio) == -1) { 
-      perror("tcgetattr");
-      exit(-1);
-    }
-}
-int resetTermios(){
-	if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
-}
 
-int setTermios(){
-	bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
 
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
+int writeToFd(int filed,char* buf, int length){
 
-    newtio.c_cc[VTIME]    = 0;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
-
- 	 /* 
-  	  VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-  	  leitura do(s) próximo(s) caracter(es)
-  	*/
-
-    tcflush(fd, TCIOFLUSH);
-
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
-
-    printf("New termios structure set\n");
-}
-
-int writeToFd(char* buf){
-
-	int len, nw;
+	int sent;
 	
-	len = strlen(buf);
+	sent = write(filed,buf,length);
+	
+	fsync(filed);
+	
+	if(sent != length)
+		perror("Message not correctly sent\n");
+	
+	return sent == length;
 
-	buf[len-1]='\0';
+}
 
-	nw = 0;
-	while (len > nw){
-		int n;
-		n = write(fd, buf + nw, len - nw); 
-		if ( !n ) break;
-		nw += n;
+int receiveTrama(int fd){
+	char buff[255];
+	int tramaOffset = 0;
+	char lastByte;
+	int state = START;
+	
+	while(state != STOP_ST){
+		int nbytes = read(fd,&lastByte,1);
+		if(nbytes != 1){
+			printf("Erro a receber trama");
+			return -1;
+		}
+		
+		switch(state){
+			case START:
+				if(lastByte == FLAG){
+					buff[tramaOffset] = lastByte;
+					tramaOffset++;
+					state = FLAG_RCV;
+				}
+				break;
+			case FLAG_RCV:
+				if(lastByte == A){
+					buff[tramaOffset] = lastByte;
+					tramaOffset++;
+					state = A_RCV;
+				}else 
+				if(lastByte == FLAG){
+					tramaOffset = 1;
+					state = FLAG_RCV;
+				}else {
+					tramaOffset = 0;
+					state = START;
+				}
+				break;
+			case A_RCV:
+				if(lastByte == FLAG){
+					tramaOffset = 1;
+					state = FLAG_RCV;
+				}else{
+					buff[tramaOffset] = lastByte;
+					tramaOffset++;
+					state = C_RCV;
+				}
+				break;
+			case C_RCV:
+				if(lastByte == buff[1] ^ buff[2]){
+					buff[tramaOffset] = lastByte;
+					tramaOffset++;
+					state = BCC_RCV;
+				}else 
+				if(lastByte == FLAG){
+					tramaOffset = 1;
+					state = FLAG_RCV;
+				}else{
+					tramaOffset = 0;
+					state = START;
+				}
+				break;
+			case BCC_RCV:
+				if(lastByte == FLAG){
+					buff[tramaOffset] = lastByte;
+					tramaOffset++;
+					state = STOP_ST;
+				}
+				break;
+				
+		}
 	}
-	
-	if ( nw < len ) { 
-		perror ("number written is wrong");
-		exit(-1);
-	} 
-	
-	return nw;
+	if(buff[2] == C_SET){
+		return 0;
+	}else if(buff[2] == C_UA){
+		return 1;
+	}else return -1;
 }
 	
-int readFromFd(char* buf){
-	bzero(&buf,sizeof(buf));
-    int res;
-	int uteis = 0;
-    while (STOP==FALSE) {       /* loop for input */
-      res = read(fd,buf+uteis,255);   /* returns after 1 chars have  been input */
-      uteis+= res;
-      if(buf[uteis-1] == '\0'){
-         printf(":%s:%d\n", buf,uteis);
-		 STOP = TRUE;
-	  }
-	}
-	
-	return uteis;
-}
 
 int main(int argc, char** argv)
 {
-    int c, res;
     char buf[255];
-    int i, sum = 0, speed = 0;
     
-    if ( (argc < 2) || 
+    if ( (argc != 3) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+      printf("Usage:\tnserial SerialPort MODE\n\tex: nserial /dev/ttyS1 TRANSMITTER\n");
       exit(1);
     }
-
-
-  /*
-    Open serial port device for reading and writing and not as controlling tty
-    because we don't want to get killed if linenoise sends CTRL-C.
-  */
-
-
-     fd = open(argv[1], O_RDWR | O_NOCTTY );
-     if (fd <0) {perror(argv[1]); exit(-1); }
-
-	saveTermios(&oldtio);
-
-	setTermios(&newtio,fd);
+	
+	int transorres = -1;
+	
+	if(strcmp("TRANSMITTER",argv[2]) == 0){
+		transorres = TRANSMITTER;
+	}else 
+		if(strcmp("RECEIVER",argv[2]) == 0){
+		transorres = RECEIVER;
+	}else{
+		printf("Third argument has to be TRANSMITTER or RECEIVER");
+		exit(1);
+	}
+	/*
+		Open serial port device for reading and writing and not as controlling tty
+		because we don't want to get killed if linenoise sends CTRL-C.
+	*/
+    int fd = llopen(argv[1],transorres);
+		if (fd <0) {perror(argv[1]); exit(-1); }
 
 	// read line from stdin
 
-	if (fgets(buf, 255, stdin) == NULL){
+	/*if (fgets(buf, 255, stdin) == NULL){
 		perror("null string");
 		exit(-1);
 	}
 
-	writeToFd(buf);
+	writeToFd(buf);*/
 
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+    resetTermios(fd, &oldtio);
 
     close(fd);
+	
     return 0;
 }
 
