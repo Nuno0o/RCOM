@@ -9,6 +9,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <signal.h>
 
 #define BAUDRATE B9600
 #define MODEMDEVICE "/dev/ttyS1"
@@ -47,6 +48,9 @@ struct termios oldtio,newtio;
 char SET[6] = {FLAG,A,C_SET,BCC_SET,FLAG,'\0'};
 char UA[6] = {FLAG,A,C_UA,BCC_UA,FLAG};
 
+int flag_alarm = 0, conta_alarm = 0,num = 1;
+char buf[10];
+
 //---------------------- PROTOTIPOS
 int saveTermios(int filed,struct termios * ter);
 int setTermios(int filed,struct termios * ter);
@@ -56,6 +60,19 @@ int writeToFd(int filed,char* buf,int length);
 int receiveTrama(int fd);
 
 // -------------------- DEFINICOES
+
+void atende_alarm(int signo){
+	flag_alarm = 1;
+	conta_alarm++;
+	alarm(0);
+	printf("Alarm %d \n", conta_alarm);
+}
+
+void desativa_alarm(void) {
+	alarm(0);
+	conta_alarm = 0;
+	flag_alarm = 0;
+}
 
 int saveTermios(int filed, struct termios * ter){
 	if ( tcgetattr(filed,ter) == -1) { 
@@ -114,17 +131,27 @@ int llopen(char* porta, int flag)
 
 	case TRANSMITTER:
 	{
-		// enviar SET
-		writeToFd(fd,SET,5);
-		printf("Trama SET enviada\n");
 		
-		// receber UA
-		int res = receiveTrama(fd);
-		printf("Trama:%d\n",res);
+		
+		printf("Trama SET enviada\n"); 
+		int res = 0;	
+		while (conta_alarm < 4 && res != TRAMA_UA)
+		{	
+			// enviar SET
+			writeToFd(fd,SET,5);
+			//printf("Introduza um valor, zero para terminar \n");
+			flag_alarm = 0;
+			while (flag_alarm == 0 && res != TRAMA_UA) {
+				alarm(3);
+				// receber UA
+				res = receiveTrama(fd);
+				printf("Trama:%d\n",res);
+			}
+		if(res == TRAMA_UA) desativa_alarm();
+		}		
 		// ...
 		
 		
-	
 		return fd;
 	}
 	break;
@@ -165,6 +192,9 @@ int writeToFd(int filed,char* buf, int length){
 
 }
 
+/**
+* something something write comments please ;D
+*/
 int receiveTrama(int fd){
 	char buff[255];
 	int tramaOffset = 0;
@@ -172,7 +202,9 @@ int receiveTrama(int fd){
 	int state = START;
 	
 	while(state != STOP_ST){
+		printf("ola1\n");
 		int nbytes = read(fd,&lastByte,1);
+		printf("ola2\n");
 		if(nbytes != 1){
 			printf("Erro a receber trama");
 			return -1;
@@ -242,8 +274,10 @@ int receiveTrama(int fd){
 }
 	
 
-int main(int argc, char** argv)
+int main(int argc,  char** argv)
 {
+	signal(SIGALRM, atende_alarm);
+
     char buf[255];
     
     if ( (argc != 3) || 
@@ -273,12 +307,7 @@ int main(int argc, char** argv)
 
 	// read line from stdin
 
-	/*if (fgets(buf, 255, stdin) == NULL){
-		perror("null string");
-		exit(-1);
-	}
-
-	writeToFd(buf);*/
+	
 
     resetTermios(fd, &oldtio);
 
