@@ -52,5 +52,6 @@ sz[3] = fsize / 0x1000000;
 LITTLE ENDAN (INTEL) (menos significativo primeiro)
 BIG ENDIAN (MOTOROLA) (mais significativo primeiro)
 lseek(fd, 0, SEEK_END) + 1; -> RETORNAR TAMANHO DO FICHEIRO
+lsize = ftell(fd);
 lseek(ffd, 0, SEEK_SET);
 
