@@ -23,10 +23,13 @@
 #define FLAG 0x7e
 #define A 0x03
 #define C_SET 0x03
+#define C_RR 0x05
+#define C_REJ 0x01
+#define C_DISC 0x0B
 #define C_UA 0x07
-#define BCC_SET A ^ C_SET
-#define BCC_UA  A ^ C_UA
 #define ESCAPE 0x7d
+#define C_DATA 0x00
+#define CALC 0x20
 
 //Estados da trama
 #define START -1
@@ -45,8 +48,8 @@
 volatile int STOP=FALSE;
 struct termios oldtio,newtio;
 
-char SET[6] = {FLAG,A,C_SET,BCC_SET,FLAG,'\0'};
-char UA[6] = {FLAG,A,C_UA,BCC_UA,FLAG};
+char SET[6] = {FLAG,A,C_SET, A ^ C_SET,FLAG,'\0'};
+char UA[6] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
 
 int flag_alarm = 0, conta_alarm = 0,num = 1;
 char buf[10];
@@ -75,7 +78,7 @@ void desativa_alarm(void) {
 }
 
 int saveTermios(int filed, struct termios * ter){
-	if ( tcgetattr(filed,ter) == -1) { 
+	if ( tcgetattr(filed,ter) == -1) {
       perror("tcgetattr");
       exit(-1);
     }
@@ -99,9 +102,9 @@ int setTermios(int filed,struct termios * ter){
     ter->c_cc[VTIME]    = 0;   /* inter-character timer unused */
     ter->c_cc[VMIN]     = 1;   /* blocking read until 1 chars received */
 
- 	 /* 
-  	  VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-  	  leitura do(s) próximo(s) caracter(es)
+ 	 /*
+  	  VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a
+  	  leitura do(s) prï¿½ximo(s) caracter(es)
   	*/
 
     tcflush(filed, TCIOFLUSH);
@@ -110,13 +113,13 @@ int setTermios(int filed,struct termios * ter){
       perror("tcsetattr");
       exit(-1);
     }
-	
+
 
     //printf("New termios structure set\n");
 }
 
 int llopen(char* porta, int flag)
-{	
+{
 	siginterrupt(SIGALRM, 1);
 	char buf[255];
 	// abrir porta
@@ -130,12 +133,12 @@ int llopen(char* porta, int flag)
 
 	case TRANSMITTER:
 	{
-		
-		
-		printf("Trama SET enviada\n"); 
-		int res = 0;	 
-		while (flag_alarm == 0 && (conta_alarm < 3 && res != TRAMA_UA))
-		{	
+
+
+		printf("Trama SET enviada\n");
+		int res = 0;
+		while (conta_alarm < 3 && res != TRAMA_UA)
+		{
 			writeToFd(fd,SET,5);
 			flag_alarm = 0;
 			while (flag_alarm == 0 && res != TRAMA_UA) {
@@ -143,25 +146,24 @@ int llopen(char* porta, int flag)
 				res = receiveTrama(fd);
 			}
 			if(res == TRAMA_UA) desativa_alarm();
-		}		
+		}
 		// ...
-		
-		
+
+
 		return fd;
 	}
 	break;
 
 	case RECEIVER:
-	{	
+	{
 		// aguardar SET
 		int res = receiveTrama(fd);
-		printf("Trama:%d\n",res);
 		// enviar UA
 		writeToFd(fd,UA,5);
 		printf("Trama UA enviada\n");
 		// ...
 		return fd;
-		
+
 	}
 
 	break;
@@ -171,18 +173,82 @@ int llopen(char* porta, int flag)
 	return -1;
 }
 
+char* stuffData(char* buf, int arraySize){
+	//Stuffing needed?
+	int i;
+	int newArraySize = arraySize;
+	//check for FLAG or ESC existance. first and last bytes are FLAG...
+	for (i = 1; i < arraySize - 1; i++){
+			// check for FLAG or ESCAPE
+			if (buf[i] == FLAG || buf[i] == ESCAPE) newArraySize++;
+
+	}
+
+	char* newBuf = (char*) malloc(newArraySize);
+	memcpy(newBuf,buf,arraySize);
+	// create the new array
+	for (i = 1; i < newArraySize; i++){
+			if (newBuf[i] == FLAG){
+					memmove(newBuf+i+1,newBuf+i,arraySize-i);
+					newBuf[i] = ESCAPE;
+					newBuf[i + 1] = FLAG ^ CALC;
+					i++;
+			}
+			else if (newBuf[i] == ESCAPE){
+					memmove(newBuf+i+1,newBuf+i,arraySize-i);
+					newBuf[i] = ESCAPE;
+					newBuf[i + 1] = ESCAPE ^ CALC;
+					i++;
+			}
+	}
+
+	return newBuf;
+}
+
+/*ui destuff(unsigned char** buf, ui bufSize) {
+	int i;
+	for (i = 1; i < bufSize - 1; ++i) {
+		if ((*buf)[i] == ESCAPE) {
+			memmove(*buf + i, *buf + i + 1, bufSize - i - 1);
+
+			bufSize--;
+
+			(*buf)[i] ^= 0x20;
+		}
+	}
+
+	*buf = (unsigned char*) realloc(*buf, bufSize);
+
+	return bufSize;
+}*/
+
+char* destuff(unsigned char* buf, int arraySize){
+	//Stuffing needed?
+	int i;
+	//check for FLAG or ESC existance. first and last bytes are FLAG...
+
+	// create the new array
+	for (i = 1; i < newArraySize; i++){
+			if (newBuf[i] == ESCAPE){
+					memmove(newBuf+i,newBuf+i+1,arraySize-i-1);
+					if (newBuf[i] == FLAG ^ CALC) newBuf[i] = FLAG;
+					else newBuf[i] = ESCAPE;
+			}
+	}
+	return newBuf;
+}
 
 int writeToFd(int filed,char* buf, int length){
 
 	int sent;
-	
+
 	sent = write(filed,buf,length);
-	
+
 	fsync(filed);
-	
+
 	if(sent != length)
 		perror("Message not correctly sent\n");
-	
+
 	return sent == length;
 
 }
@@ -195,14 +261,13 @@ int receiveTrama(int fd){
 	int tramaOffset = 0;
 	char lastByte;
 	int state = START;
-	
+
 	while(state != STOP_ST){
 		int nbytes = read(fd,&lastByte,1);
 		if(nbytes != 1){
-			printf("Erro a receber trama");
 			return -1;
 		}
-		
+
 		switch(state){
 			case START:
 				if(lastByte == FLAG){
@@ -216,7 +281,7 @@ int receiveTrama(int fd){
 					buff[tramaOffset] = lastByte;
 					tramaOffset++;
 					state = A_RCV;
-				}else 
+				}else
 				if(lastByte == FLAG){
 					tramaOffset = 1;
 					state = FLAG_RCV;
@@ -240,7 +305,7 @@ int receiveTrama(int fd){
 					buff[tramaOffset] = lastByte;
 					tramaOffset++;
 					state = BCC_RCV;
-				}else 
+				}else
 				if(lastByte == FLAG){
 					tramaOffset = 1;
 					state = FLAG_RCV;
@@ -264,26 +329,26 @@ int receiveTrama(int fd){
 		return 1;
 	}else return -1;
 }
-	
+
 
 int main(int argc,  char** argv)
 {
 	signal(SIGALRM, atende_alarm);
 
     char buf[255];
-    
-    if ( (argc != 3) || 
-  	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
+
+    if ( (argc != 3) ||
+  	     ((strcmp("/dev/ttyS0", argv[1])!=0) &&
   	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
       printf("Usage:\tnserial SerialPort MODE\n\tex: nserial /dev/ttyS1 TRANSMITTER\n");
       exit(1);
     }
-	
+
 	int transorres = -1;
-	
+
 	if(strcmp("TRANSMITTER",argv[2]) == 0){
 		transorres = TRANSMITTER;
-	}else 
+	}else
 		if(strcmp("RECEIVER",argv[2]) == 0){
 		transorres = RECEIVER;
 	}else{
@@ -299,12 +364,11 @@ int main(int argc,  char** argv)
 
 	// read line from stdin
 
-	
+
 
     resetTermios(fd, &oldtio);
 
     close(fd);
-	
+
     return 0;
 }
-
