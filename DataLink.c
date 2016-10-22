@@ -116,13 +116,12 @@ int setTermios(int filed,struct termios * ter){
 }
 
 int llopen(char* porta, int flag)
-{
+{	
+	siginterrupt(SIGALRM, 1);
 	char buf[255];
 	// abrir porta
-	printf("ola\n %s",porta);
 	int fd = open(porta, O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(porta); exit(-1); }
-	printf("ola2\n");
+    	if (fd <0) {perror(porta); exit(-1); }
 	// modo canonico
 	saveTermios(fd,&oldtio);
 	setTermios(fd,&newtio);
@@ -134,20 +133,16 @@ int llopen(char* porta, int flag)
 		
 		
 		printf("Trama SET enviada\n"); 
-		int res = 0;	
-		while (conta_alarm < 4 && res != TRAMA_UA)
+		int res = 0;	 
+		while (flag_alarm == 0 && (conta_alarm < 3 && res != TRAMA_UA))
 		{	
-			// enviar SET
 			writeToFd(fd,SET,5);
-			//printf("Introduza um valor, zero para terminar \n");
 			flag_alarm = 0;
 			while (flag_alarm == 0 && res != TRAMA_UA) {
 				alarm(3);
-				// receber UA
 				res = receiveTrama(fd);
-				printf("Trama:%d\n",res);
 			}
-		if(res == TRAMA_UA) desativa_alarm();
+			if(res == TRAMA_UA) desativa_alarm();
 		}		
 		// ...
 		
@@ -202,9 +197,7 @@ int receiveTrama(int fd){
 	int state = START;
 	
 	while(state != STOP_ST){
-		printf("ola1\n");
 		int nbytes = read(fd,&lastByte,1);
-		printf("ola2\n");
 		if(nbytes != 1){
 			printf("Erro a receber trama");
 			return -1;
@@ -263,7 +256,6 @@ int receiveTrama(int fd){
 					state = STOP_ST;
 				}
 				break;
-				
 		}
 	}
 	if(buff[2] == C_SET){
