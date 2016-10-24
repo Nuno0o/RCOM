@@ -12,6 +12,8 @@
 #define TRANSMITTER 0
 #define RECEIVER 1
 
+#define MAX_SIZE 256
+
 //Alarme
 #define ALARM_NOT_AWAKE 0
 #define ALARM_AWAKE 1
@@ -43,5 +45,7 @@
 #define TRAMA_RR 2
 #define TRAMA_REJ 3
 #define TRAMA_DISC 4
+
+#define CONTROL_TRAMA_SIZE 5
 
 #endif

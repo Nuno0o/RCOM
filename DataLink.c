@@ -11,13 +11,14 @@
 #include "defines.h"
 #include "termiosManip.h"
 #include "LinkLayer.h"
+#include "File.h"
 
 volatile int STOP=FALSE;
 
 struct termios oldtio,newtio;
 
-char SET[6] = {FLAG,A,C_SET, A ^ C_SET,FLAG,'\0'};
-char UA[6] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
+char SET[CONTROL_TRAMA_SIZE] = {FLAG,A,C_SET, A ^ C_SET,FLAG};
+char UA[CONTROL_TRAMA_SIZE] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
 
 int flag_alarm = ALARM_NOT_AWAKE;
 int conta_alarm = 0;
@@ -73,7 +74,7 @@ int llopen(int flag)
 					int res = 0;
 					while (conta_alarm < Llayer->numTransmissions && res != TRAMA_UA)
 					{
-							writeToFd(fd,SET,5);
+							writeToFd(fd,SET,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 							flag_alarm = ALARM_NOT_AWAKE;
 							while (flag_alarm == ALARM_NOT_AWAKE && res != TRAMA_UA) {
 									alarm(Llayer->timeout);
@@ -88,7 +89,7 @@ int llopen(int flag)
 					// aguardar SET
 					int res = receiveTrama(fd, buff);
 					// enviar UA
-					writeToFd(fd,UA,5);
+					writeToFd(fd,UA,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 					printf("Trama UA enviada\n");
 					return fd;
 			} break;
@@ -115,13 +116,25 @@ int llwrite(int fd, char* buf, int length){
 		return -1;*/
 }
 
-int writeToFd(int filed,char* buf, int length){
-	int sent;
-	sent = write(filed,buf,length);
-	fsync(filed);
-	if(sent != length)
-		perror("Message not correctly sent\n");
-	return sent == length;
+int writeToFd(int filed, char* buf, int length, TramaType type){
+		switch (type){
+			case DATA_TRAMA: return writeTramaToFd(filed, buf, length, TRUE); break;
+			case CONTROL_TRAMA: return writeTramaToFd(filed, buf, length, FALSE); break;
+			default: break;
+		}
+		return -1;
+}
+
+int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
+		int sent;
+
+		if (!requiresStuffing) sent = write(fd,trama,length);
+		else sent = write(fd,stuffData(trama, length),length);
+		fsync(fd);
+
+		if(sent != length)
+			perror("Message not correctly sent\n");
+		return sent == length;
 }
 
 /**
