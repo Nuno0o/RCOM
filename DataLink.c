@@ -19,6 +19,7 @@ struct termios oldtio,newtio;
 
 char SET[CONTROL_TRAMA_SIZE] = {FLAG,A,C_SET, A ^ C_SET,FLAG};
 char UA[CONTROL_TRAMA_SIZE] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
+char DISC[CONTROL_TRAMA_SIZE] = {FLAG, A, C_DISC, A ^ C_DISC, FLAG};
 
 int flag_alarm = ALARM_NOT_AWAKE;
 int conta_alarm = 0;
@@ -115,6 +116,61 @@ int llwrite(int fd, char* buf, int length){
 		}
 		return -1;*/
 }
+
+// --------------------------- LL READ -------------------------------
+int llread(int fd, char* buf){
+	return -1;
+}
+
+// --------------------------- LL CLOSE ------------------------------
+int llclose(int fd, int flag){
+
+		// Instalar Alarme
+		siginterrupt(SIGALRM, TRUE);
+
+		// Ativar modo canonico
+		saveTermios(fd,&oldtio);
+		setTermios(fd,&newtio);
+
+		char buff[MAX_SIZE];
+
+		switch(flag){
+			case TRANSMITTER:
+			{
+					printf("Trama DISC enviada\n");
+					int res = 0;
+					while (conta_alarm < Llayer->numTransmissions && res != TRAMA_DISC)
+					{
+							writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+							flag_alarm = ALARM_NOT_AWAKE;
+							while (flag_alarm == ALARM_NOT_AWAKE && res != TRAMA_DISC) {
+									alarm(Llayer->timeout);
+									res = receiveTrama(fd, buff);
+							}
+							if(res == TRAMA_DISC) {
+								desativa_alarm();
+								if (writeToFd(fd,UA,CONTROL_TRAMA_SIZE,CONTROL_TRAMA) != FAILURE) return SUCCESS;
+							}
+					}
+					return FAILURE;
+			} break;
+			case RECEIVER:
+			{
+					// aguardar DISC
+					int res = receiveTrama(fd, buff);
+					if (res == TRAMA_DISC){
+						// enviar DISC
+						writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+						printf("Trama DISC enviada\n");
+						res = receiveTrama(fd, buff);
+						if (res != TRAMA_UA) return FAILURE;
+					}
+					return SUCCESS;
+			} break;
+		}
+	return FAILURE;
+}
+
 
 int writeToFd(int filed, char* buf, int length, TramaType type){
 		switch (type){
