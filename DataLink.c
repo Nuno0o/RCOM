@@ -117,8 +117,8 @@ int llwrite(int fd, char* buf, int length){
 	else treatTrama(received);
 }
 if (received == TRAMA_RR || received == TRAMA_REJ) desativa_alarm();
-}
-return -1;*/
+}*/
+return -1;
 }
 
 // --------------------------- LL READ -------------------------------
@@ -241,7 +241,7 @@ int receiveTrama(int fd, char* buff){
 			}
 			break;
 			case C_RCV:
-			if(lastByte == buff[1] ^ buff[2]){
+			if(lastByte == (buff[1] ^ buff[2])){
 				buff[tramaOffset] = lastByte;
 				tramaOffset++;
 				state = BCC_RCV;
@@ -308,7 +308,7 @@ char* stuffData(char* buf, int arraySize){
 	return newBuf;
 }
 
-char* destuff(unsigned char* buf, int arraySize){
+char* destuff(char* buf, int arraySize){
 	//Stuffing needed?
 	int i;
 	//check for FLAG or ESC existance. first and last bytes are FLAG...
@@ -317,7 +317,7 @@ char* destuff(unsigned char* buf, int arraySize){
 	for (i = 1; i < arraySize; i++){
 		if (buf[i] == ESCAPE){
 			memmove(buf+i,buf+i+1,arraySize-i-1);
-			if (buf[i] == FLAG ^ CALC) buf[i] = FLAG;
+			if (buf[i] == (FLAG ^ CALC)) buf[i] = FLAG;
 			else buf[i] = ESCAPE;
 		}
 	}
@@ -328,8 +328,6 @@ char* destuff(unsigned char* buf, int arraySize){
 int main(int argc,  char** argv)
 {
 	signal(SIGALRM, atende_alarm);
-
-	char buf[255];
 
 	if ( (argc != 3) ||
 	((strcmp("/dev/ttyS0", argv[1])!=0) &&
