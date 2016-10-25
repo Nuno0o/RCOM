@@ -1,6 +1,6 @@
 all: DataLink
 
-DataLink: DataLink.o termiosManip.o LinkLayer.o File.o
+DataLink: clean DataLink.o termiosManip.o LinkLayer.o File.o
 	gcc DataLink.o termiosManip.o LinkLayer.o File.o -o DataLink
 	
 DataLink.o:
@@ -12,6 +12,6 @@ LinkLayer.o:
 File.o:
 	gcc -c File.c
 clean:
-	rm  DataLink DataLink.o termiosManip.o LinkLayer.o File.o
+	-rm  DataLink DataLink.o termiosManip.o LinkLayer.o File.o
 
 .PHONY:all
