@@ -24,12 +24,13 @@
 #define FLAG 0x7e
 #define A 0x03
 #define C_SET 0x03
-#define C_RR 0x05
-#define C_REJ 0x01
+#define C_RR0 0x05
+#define C_RR1 0x85
+#define C_REJ0 0x01
+#define C_REJ1 0x51
 #define C_DISC 0x0B
 #define C_UA 0x07
 #define ESCAPE 0x7d
-#define C_DATA 0x00
 #define CALC 0x20
 #define C_I_0 0x00
 #define C_I_1 0x40
@@ -48,8 +49,12 @@
 #define TRAMA_SET 0
 #define TRAMA_UA 1
 #define TRAMA_RR 2
-#define TRAMA_REJ 3
-#define TRAMA_DISC 4
+#define TRAMA_RR0 3
+#define TRAMA_RR1 4
+#define TRAMA_REJ0 5
+#define TRAMA_REJ1 6
+#define TRAMA_DISC 7
+
 
 #define CONTROL_TRAMA_SIZE 5
 #define INF_TRAMA_SIZE 6

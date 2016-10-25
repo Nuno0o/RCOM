@@ -82,7 +82,7 @@ int llopen(int flag)
 					res = receiveTrama(fd, buff);
 				}
 				if(res == TRAMA_UA) {
-					printf("Trama SET recebida!\n");
+					printf("Trama UA recebida!\n");
 					desativa_alarm();
 				}
 			}
@@ -111,21 +111,28 @@ char* makeTrama(int trama,char *buf,int length,int toggle){
 		{
 			//malloc(FLAG + A + C + BCC1 + DATA + BCC2 + FLAG)
 			ret = (char*)malloc(length + INF_TRAMA_SIZE);
+			//Coloca byte 1 FLAG
 			ret[0] = FLAG;
+			//Coloca byte 2 A
 			ret[1] = A;
+			//Coloca byte 3 C_I_0 OU C_I_1 (L(s))
 			if(toggle == 0) {
 				ret[2] = C_I_0;
 			}
 			else {
 				ret[2] = C_I_1;
 			}
+			//BCC
 			ret[3] = ret[1] ^ ret[2];
+			//DATA
 			memcpy(ret+4,buf,length);
+			//XOR de todos os elementos de data
 			ret[4+length] = 0;
 			int j = 0;
 			for(j = 0;j < length;j++) {
 				ret[4+length] ^= buf[j];
 			}
+			//FLAG 2
 			ret[4+length+1] = FLAG;
 			return ret;
 		}
@@ -137,21 +144,46 @@ char* makeTrama(int trama,char *buf,int length,int toggle){
 }
 
 int llwrite(int fd, char* buf, int length){
-	/*char buff[MAX_SIZE];
+	char buff[MAX_SIZE];
 	int receivedStop = FALSE;
-	while (!receivedStop && conta_alarm < Llayer->numTransmissions){
-	//writeMessage(fd, buf, length);
-	int received = 0;
-	while (flag_alarm == ALARM_NOT_AWAKE){
-	alarm(Llayer->timeout);
-	received = receiveTrama(fd, buff);
-	if (received == TRAMA_REJ) break;
-	else if (received == TRAMA_RR) receivedStop = TRUE;
-	else treatTrama(received);
-}
-if (received == TRAMA_RR || received == TRAMA_REJ) desativa_alarm();
-}
-*/return FAILURE;
+	//Numero de bytes ja enviados
+	int bytesSent = 0;
+	//L(s)
+	int ls = 0;
+	while (!receivedStop && conta_alarm < Llayer->numTransmissions && bytesSent < length){
+		//Bytes a enviar na trama atual
+		int toSend;
+		if(length-bytesSent < 256) toSend = length-bytesSent;
+		else toSend = 256;
+		//Construcao da trama de dados a enviar
+		char* dataTrama = makeTrama(TRAMA_I,buf+bytesSent,toSend,ls);
+		//Envio da trama
+		writeToFd(fd,dataTrama,toSend+ INF_TRAMA_SIZE,DATA_TRAMA);
+		//Liberta memoria
+		free(dataTrama);
+
+		int received = 0;
+		while (flag_alarm == ALARM_NOT_AWAKE){
+			alarm(Llayer->timeout);
+			received = receiveTrama(fd, buff);
+			//Se receber rej correspondente ao L(s) atual, reenvia mensagem(bytesSent nao incrementa, logo a mesma e enviada)
+			if (((received == TRAMA_REJ0) && (ls == 0)) || ((received == TRAMA_REJ1) && (ls == 1))){
+				desativa_alarm();
+				break;
+			}
+			//Se receber rr correspondente ao L(s) atual, incrementa o numero de bytes enviados e passa para envio de proxima trama
+			else if (((received == TRAMA_RR0) && (ls == 0)) || ((received == TRAMA_RR1) && (ls == 1))){
+				desativa_alarm();
+				if(ls == 0) ls = 1;else ls = 0;
+				bytesSent+=toSend;
+			}
+			//Caso contrario continua a espera de mensagens
+			else continue;
+		}
+	}
+	if(bytesSent == length)
+		return SUCCESS;
+	return FAILURE;
 }
 
 // --------------------------- LL READ -------------------------------
@@ -161,10 +193,6 @@ int llread(int fd, char* buf){
 
 // --------------------------- LL CLOSE ------------------------------
 int llclose(int fd, int flag){
-
-	// Ativar modo canonico
-	saveTermios(fd,&oldtio);
-	setTermios(fd,&newtio);
 
 	char buff[MAX_SIZE];
 
@@ -237,6 +265,7 @@ int receiveTrama(int fd, char* buff){
 
 	while(state != STOP_ST){
 		int nbytes = read(fd,&lastByte,1);
+		printf("%d\n",nbytes);
 		if(nbytes != 1){
 			return -1;
 		}
@@ -300,10 +329,14 @@ int receiveTrama(int fd, char* buff){
 		return TRAMA_SET;
 	}else if(buff[2] == C_UA){
 		return TRAMA_UA;
-	}else if (buff[2] == C_RR) {
-		return TRAMA_RR;
-	}else if (buff[2] == C_REJ) {
-		return TRAMA_REJ;
+	}else if (buff[2] == C_RR0) {
+		return TRAMA_RR0;
+	}else if (buff[2] == C_RR1) {
+		return TRAMA_RR1;
+	}else if (buff[2] == C_REJ0) {
+		return TRAMA_REJ0;
+	}else if (buff[2] == C_REJ1) {
+		return TRAMA_REJ1;
 	}else	if (buff[2] == C_DISC){
 		return TRAMA_DISC;
 	} return TRAMA_ERROR;
@@ -387,8 +420,8 @@ int main(int argc,  char** argv)
 	Llayer = createLinkLayer(argv[1], BAUDRATE, 0, 3, 3);
 	int fd = llopen(transorres);
 	if (fd <0) {perror(argv[1]); exit(-1); }
-	resetTermios(fd, &oldtio);
 	llclose(fd,transorres);
+	resetTermios(fd, &oldtio);
 	close(fd);
 
 	return 0;
