@@ -31,6 +31,9 @@
 #define ESCAPE 0x7d
 #define C_DATA 0x00
 #define CALC 0x20
+#define C_I_0 0x00
+#define C_I_1 0x40
+#define TRAMA_I 5
 
 //Estados da trama
 #define START -1
@@ -49,5 +52,6 @@
 #define TRAMA_DISC 4
 
 #define CONTROL_TRAMA_SIZE 5
+#define INF_TRAMA_SIZE 6
 
 #endif

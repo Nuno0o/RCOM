@@ -15,6 +15,7 @@ File* initFile(int fd, char* fileMode){
     retorno->fd = fd;
     retorno->fileMode = fileMode;
     retorno->fileSize = lseek(retorno->fd, 0, SEEK_END) + 1;
+    return retorno;
 }
 
 long getFileOffset(File* file){

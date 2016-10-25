@@ -103,6 +103,39 @@ int llopen(int flag)
 }
 
 // --------------------------- LL WRITE ------------------------------
+char* makeTrama(int trama,char *buf,int length,int toggle){
+	char* ret;
+
+	switch(trama){
+		case TRAMA_I:
+		{
+			//malloc(FLAG + A + C + BCC1 + DATA + BCC2 + FLAG)
+			ret = (char*)malloc(length + INF_TRAMA_SIZE);
+			ret[0] = FLAG;
+			ret[1] = A;
+			if(toggle == 0) {
+				ret[2] = C_I_0;
+			}
+			else {
+				ret[2] = C_I_1;
+			}
+			ret[3] = ret[1] ^ ret[2];
+			memcpy(ret+4,buf,length);
+			ret[4+length] = 0;
+			int j = 0;
+			for(j = 0;j < length;j++) {
+				ret[4+length] ^= buf[j];
+			}
+			ret[4+length+1] = FLAG;
+			return ret;
+		}
+			break;
+		default:
+			break;
+	}
+	return NULL;
+}
+
 int llwrite(int fd, char* buf, int length){
 	/*char buff[MAX_SIZE];
 	int receivedStop = FALSE;
@@ -117,8 +150,8 @@ int llwrite(int fd, char* buf, int length){
 	else treatTrama(received);
 }
 if (received == TRAMA_RR || received == TRAMA_REJ) desativa_alarm();
-}*/
-return -1;
+}
+*/return FAILURE;
 }
 
 // --------------------------- LL READ -------------------------------
