@@ -149,14 +149,14 @@ int llwrite(int fd, char* buf, int length){
 	//Numero de bytes ja enviados
 	int bytesSent = 0;
 	//L(s)
-	int ls = 0;
+	int ns = 0;
 	while (!receivedStop && conta_alarm < Llayer->numTransmissions && bytesSent < length){
 		//Bytes a enviar na trama atual
 		int toSend;
 		if(length-bytesSent < 256) toSend = length-bytesSent;
 		else toSend = 256;
 		//Construcao da trama de dados a enviar
-		char* dataTrama = makeTrama(TRAMA_I,buf+bytesSent,toSend,ls);
+		char* dataTrama = makeTrama(TRAMA_I,buf+bytesSent,toSend,ns);
 		//Envio da trama
 		writeToFd(fd,dataTrama,toSend+ INF_TRAMA_SIZE,DATA_TRAMA);
 		//Liberta memoria
@@ -167,14 +167,14 @@ int llwrite(int fd, char* buf, int length){
 			alarm(Llayer->timeout);
 			received = receiveTrama(fd, buff);
 			//Se receber rej correspondente ao L(s) atual, reenvia mensagem(bytesSent nao incrementa, logo a mesma e enviada)
-			if (((received == TRAMA_REJ0) && (ls == 0)) || ((received == TRAMA_REJ1) && (ls == 1))){
+			if (((received == TRAMA_REJ1) && (ns == 0)) || ((received == TRAMA_REJ0) && (ns == 1))){
 				desativa_alarm();
 				break;
 			}
 			//Se receber rr correspondente ao L(s) atual, incrementa o numero de bytes enviados e passa para envio de proxima trama
-			else if (((received == TRAMA_RR0) && (ls == 0)) || ((received == TRAMA_RR1) && (ls == 1))){
+			else if (((received == TRAMA_RR0) && (ns == 0)) || ((received == TRAMA_RR1) && (ns == 1))){
 				desativa_alarm();
-				if(ls == 0) ls = 1;else ls = 0;
+				if(ns == 0) ns = 1;else ns = 0;
 				bytesSent+=toSend;
 			}
 			//Caso contrario continua a espera de mensagens
@@ -188,6 +188,10 @@ int llwrite(int fd, char* buf, int length){
 
 // --------------------------- LL READ -------------------------------
 int llread(int fd, char* buf){
+	char buff[MAX_SIZE];
+	int receivedStop = FALSE;
+	int lr = 0;
+
 	return -1;
 }
 
@@ -245,18 +249,26 @@ int writeToFd(int filed, char* buf, int length, TramaType type){
 
 int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
 	int sent;
-
-	if (!requiresStuffing) sent = write(fd,trama,length);
-	else sent = write(fd,stuffData(trama, length),length);
+  int sentLength;
+	if (!requiresStuffing) {
+		sentLength = length;
+		sent = write(fd,trama,length);
+	}
+	else{
+		char* newBuf = (char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);//Tamanho maximo da trama depois de stuffing
+		sentLength = stuffData(trama,length,newBuf);
+		sent = write(fd,newBuf,sentLength);
+		free(newBuf);
+	}
 	fsync(fd);
 
-	if(sent != length)
+	if(sent != sentLength)
 	perror("Message not correctly sent\n");
-	return sent == length;
+	return sent == sentLength;
 }
 
 /**
-* something something write comments please ;D
+* something something write comments please
 */
 int receiveTrama(int fd, char* buff){
 	int tramaOffset = 0;
@@ -321,10 +333,30 @@ int receiveTrama(int fd, char* buff){
 				buff[tramaOffset] = lastByte;
 				tramaOffset++;
 				state = STOP_ST;
+			}//Se a trama for do tipo I, continua a receber ate receber flag
+			else if(lastByte != FLAG && (buf[2] == C_I_0 || buf[2] == C_I_1)){
+				buff[tramaOffset] = lastByte;
+				tramaOffset++;
 			}
 			break;
 		}
 	}
+	//Tramas de data
+	if (buff[2] == C_I_0 || buff[2] == C_I_1){
+		//Testa se bcc2 e valido
+		char bcc2 = buff[tramaOffset-2];
+		char bcc2test = 0;
+		int j;
+		for(j = 4;j < tramaOffset-2;j++){
+			bcc2test ^= buff[j];
+		}
+		if(bcc2 != bcc2test)
+			return TRAMA_ERROR2;
+		if(buff[2] == C_I_0)return TRAMA_I_0;
+		else return TRAMA_I_1;
+	}
+
+	//Tramas de controlo
 	if(buff[2] == C_SET){
 		return TRAMA_SET;
 	}else if(buff[2] == C_UA){
@@ -342,53 +374,49 @@ int receiveTrama(int fd, char* buff){
 	} return TRAMA_ERROR;
 }
 
-char* stuffData(char* buf, int arraySize){
-	//Stuffing needed?
-	int i;
-	int newArraySize = arraySize;
-	//check for FLAG or ESC existance. first and last bytes are FLAG...
-	for (i = 1; i < arraySize - 1; i++){
-		// check for FLAG or ESCAPE
-		if (buf[i] == FLAG || buf[i] == ESCAPE) newArraySize++;
-
-	}
-
-	char* newBuf = (char*) malloc(newArraySize);
-	memcpy(newBuf,buf,arraySize);
-	// create the new array
-	for (i = 1; i < newArraySize; i++){
-		if (newBuf[i] == FLAG){
-			memmove(newBuf+i+1,newBuf+i,arraySize-i);
-			newBuf[i] = ESCAPE;
-			newBuf[i + 1] = FLAG ^ CALC;
-			i++;
+int stuffData(char* buf, int arraySize,char* newBuf){
+	// copy flag
+	newBuf[0] = buf[0];
+	// j itera em newBuf, i em buf
+	int i = 1,j = 0;
+	for (i = 1; i < arraySize-1; i++){
+		j++;
+		if (buf[i] == FLAG){
+			newBuf[j] = ESCAPE;
+			newBuf[j + 1] = FLAG ^ CALC;
+			j++;
 		}
-		else if (newBuf[i] == ESCAPE){
-			memmove(newBuf+i+1,newBuf+i,arraySize-i);
-			newBuf[i] = ESCAPE;
-			newBuf[i + 1] = ESCAPE ^ CALC;
-			i++;
-		}
+		else if (buf[i] == ESCAPE){
+			newBuf[j] = ESCAPE;
+			newBuf[j + 1] = ESCAPE ^ CALC;
+			j++;
+		}else newBuf[j] = buf[i];
 	}
-
-	return newBuf;
+	newBuf[j+1] = buf[arraySize-1];
+	//j+2 e o tamanho do novo array
+	return j+2;
 }
 
-char* destuff(char* buf, int arraySize){
-	//Stuffing needed?
-	int i;
-	//check for FLAG or ESC existance. first and last bytes are FLAG...
-
-	// create the new array
-	for (i = 1; i < arraySize; i++){
-		if (buf[i] == ESCAPE){
-			memmove(buf+i,buf+i+1,arraySize-i-1);
-			if (buf[i] == (FLAG ^ CALC)) buf[i] = FLAG;
-			else buf[i] = ESCAPE;
+int destuff(char* buf, int arraySize,char* newBuf){
+	// copy flag
+	newBuf[0] = buf[0];
+	// Valor para iterar em newBuf
+	int i = 1,j = 0;
+	for (i = 1; i < arraySize-1; i++){
+		j++;
+		if (buf[i] == ESCAPE && buf[i+1] == (FLAG ^ CALC)){
+			newBuf[j] = FLAG;
+			i++;
 		}
+		else if (buf[i] == ESCAPE && buf[i+1] == (ESCAPE ^ CALC)){
+			newBuf[j] = ESCAPE;
+			i++;
+		}else newBuf[j] = buf[i];
 	}
+	newBuf[j+1] = buf[arraySize-1];
+	//j+2 e o tamanho do novo array
+	return j+2;
 
-	return buf;
 }
 
 int main(int argc,  char** argv)

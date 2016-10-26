@@ -45,15 +45,17 @@
 #define STOP_ST 4
 
 //Tipo de trama
+#define TRAMA_ERROR2 -2 // ERRO EM BCC2
 #define TRAMA_ERROR -1
 #define TRAMA_SET 0
 #define TRAMA_UA 1
-#define TRAMA_RR 2
-#define TRAMA_RR0 3
-#define TRAMA_RR1 4
-#define TRAMA_REJ0 5
-#define TRAMA_REJ1 6
-#define TRAMA_DISC 7
+#define TRAMA_I_0 2
+#define TRAMA_I_1 3
+#define TRAMA_RR0 4
+#define TRAMA_RR1 5
+#define TRAMA_REJ0 6
+#define TRAMA_REJ1 7
+#define TRAMA_DISC 8
 
 
 #define CONTROL_TRAMA_SIZE 5
