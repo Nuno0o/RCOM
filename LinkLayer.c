@@ -9,6 +9,7 @@ LinkLayer* createLinkLayer(char* port, int baudRate, int sequenceNumber, int tim
   retorno->sequenceNumber = sequenceNumber;
   retorno->timeout = timeout;
   retorno->numTransmissions = numTransmissions;
+  retorno->ls = 0;
   return retorno;
 
 }

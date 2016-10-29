@@ -34,6 +34,8 @@
 #define CALC 0x20
 #define C_I_0 0x00
 #define C_I_1 0x40
+
+
 #define TRAMA_I 5
 
 //Estados da trama
@@ -45,7 +47,7 @@
 #define STOP_ST 4
 
 //Tipo de trama
-#define TRAMA_ERROR2 -2 // ERRO EM BCC2
+#define TRAMA_ERROR2 -2
 #define TRAMA_ERROR -1
 #define TRAMA_SET 0
 #define TRAMA_UA 1
@@ -60,5 +62,7 @@
 
 #define CONTROL_TRAMA_SIZE 5
 #define INF_TRAMA_SIZE 6
+
+#define TRAMA_DATA_OFFSET 4
 
 #endif

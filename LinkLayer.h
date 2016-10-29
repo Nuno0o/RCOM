@@ -10,6 +10,7 @@ typedef struct {
     unsigned int timeout;
     unsigned int numTransmissions;
     char frame[MAX_SIZE];
+    int ls;
 } LinkLayer;
 
 LinkLayer* createLinkLayer(char* port, int baudRate, int sequenceNumber, int timeout, int numTransmissions);

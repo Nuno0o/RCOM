@@ -20,6 +20,10 @@ struct termios oldtio,newtio;
 char SET[CONTROL_TRAMA_SIZE] = {FLAG,A,C_SET, A ^ C_SET,FLAG};
 char UA[CONTROL_TRAMA_SIZE] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
 char DISC[CONTROL_TRAMA_SIZE] = {FLAG, A, C_DISC, A ^ C_DISC, FLAG};
+char RR0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR0, A ^ C_RR0, FLAG};
+char RR1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR1, A ^ C_RR1, FLAG};
+char REJ0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ0, A ^ C_REJ0, FLAG};
+char REJ1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ1, A ^ C_REJ1, FLAG};
 
 int flag_alarm = ALARM_NOT_AWAKE;
 int conta_alarm = 0;
@@ -66,22 +70,24 @@ int llopen(int flag)
 	saveTermios(fd,&oldtio);
 	setTermios(fd,&newtio);
 
-	char buff[MAX_SIZE];
+	Trama* res;
 
 	switch(flag){
 		case TRANSMITTER:
 		{
 			printf("Trama SET enviada\n");
-			int res = 0;
-			while (conta_alarm < Llayer->numTransmissions && res != TRAMA_UA)
+
+			while (conta_alarm < Llayer->numTransmissions && res->tipo != TRAMA_UA)
 			{
+				//Envia trama SET
 				writeToFd(fd,SET,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				flag_alarm = ALARM_NOT_AWAKE;
-				while (flag_alarm == ALARM_NOT_AWAKE && res != TRAMA_UA) {
+				while (flag_alarm == ALARM_NOT_AWAKE && res->tipo != TRAMA_UA) {
 					alarm(Llayer->timeout);
-					res = receiveTrama(fd, buff);
+					//Aguarda trama UA
+					res = receiveTrama(fd);
 				}
-				if(res == TRAMA_UA) {
+				if(res->tipo == TRAMA_UA) {
 					printf("Trama UA recebida!\n");
 					desativa_alarm();
 				}
@@ -91,8 +97,8 @@ int llopen(int flag)
 		case RECEIVER:
 		{
 			// aguardar SET
-			int res = receiveTrama(fd, buff);
-			if (res != TRAMA_SET) return FAILURE;
+			res = receiveTrama(fd);
+			if (res->tipo != TRAMA_SET) return FAILURE;
 			// enviar UA
 			writeToFd(fd,UA,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 			printf("Trama UA enviada\n");
@@ -103,94 +109,103 @@ int llopen(int flag)
 }
 
 // --------------------------- LL WRITE ------------------------------
-char* makeTrama(int trama,char *buf,int length,int toggle){
-	char* ret;
+Trama* makeDataTrama(char *buf,int length,int toggle){
+	Trama* ret = (Trama*)malloc(sizeof(Trama));
+	if(toggle == 0) ret->tipo = TRAMA_I_0; else ret->tipo = TRAMA_I_1;
+	ret->length = length + INF_TRAMA_SIZE;
 
-	switch(trama){
-		case TRAMA_I:
-		{
-			//malloc(FLAG + A + C + BCC1 + DATA + BCC2 + FLAG)
-			ret = (char*)malloc(length + INF_TRAMA_SIZE);
-			//Coloca byte 1 FLAG
-			ret[0] = FLAG;
-			//Coloca byte 2 A
-			ret[1] = A;
-			//Coloca byte 3 C_I_0 OU C_I_1 (L(s))
-			if(toggle == 0) {
-				ret[2] = C_I_0;
-			}
-			else {
-				ret[2] = C_I_1;
-			}
-			//BCC
-			ret[3] = ret[1] ^ ret[2];
-			//DATA
-			memcpy(ret+4,buf,length);
-			//XOR de todos os elementos de data
-			ret[4+length] = 0;
-			int j = 0;
-			for(j = 0;j < length;j++) {
-				ret[4+length] ^= buf[j];
-			}
-			//FLAG 2
-			ret[4+length+1] = FLAG;
-			return ret;
-		}
-			break;
-		default:
-			break;
+	//malloc(FLAG + A + C + BCC1 + DATA + BCC2 + FLAG)
+	ret->trama = (char*)malloc(length + INF_TRAMA_SIZE);
+	//Coloca byte 1 FLAG
+	ret->trama[0] = FLAG;
+	//Coloca byte 2 A
+	ret->trama[1] = A;
+	//Coloca byte 3 C_I_0 OU C_I_1 (L(s))
+	if(toggle == 0) {
+		ret->trama[2] = C_I_0;
 	}
-	return NULL;
+	else {
+		ret->trama[2] = C_I_1;
+	}
+	//BCC
+	ret->trama[3] = ret->trama[1] ^ ret->trama[2];
+	//DATA
+	memcpy(ret->trama+4,buf,length);
+	//BCC2 = XOR de todos os elementos de data
+	ret->trama[4+length] = 0;
+	int j = 0;
+	for(j = 0;j < length;j++) {
+		ret->trama[4+length] ^= buf[j];
+	}
+	//FLAG 2
+	ret->trama[4+length+1] = FLAG;
+	return ret;
+
 }
 
 int llwrite(int fd, char* buf, int length){
-	char buff[MAX_SIZE];
 	int receivedStop = FALSE;
-	//Numero de bytes ja enviados
-	int bytesSent = 0;
-	//L(s)
-	int ns = 0;
-	while (!receivedStop && conta_alarm < Llayer->numTransmissions && bytesSent < length){
-		//Bytes a enviar na trama atual
-		int toSend;
-		if(length-bytesSent < 256) toSend = length-bytesSent;
-		else toSend = 256;
+	//Number of bytes sent
+	int sent = 0;
+	while (!receivedStop && conta_alarm < Llayer->numTransmissions){
 		//Construcao da trama de dados a enviar
-		char* dataTrama = makeTrama(TRAMA_I,buf+bytesSent,toSend,ns);
+		Trama* dataTrama = makeDataTrama(buf,length,Llayer->ls);
 		//Envio da trama
-		writeToFd(fd,dataTrama,toSend+ INF_TRAMA_SIZE,DATA_TRAMA);
+		sent = writeToFd(fd,dataTrama->trama,dataTrama->length,DATA_TRAMA);
 		//Liberta memoria
-		free(dataTrama);
-
-		int received = 0;
+		freeTrama(dataTrama);
+		//Aguarda resposta
+		Trama* received;
 		while (flag_alarm == ALARM_NOT_AWAKE){
 			alarm(Llayer->timeout);
-			received = receiveTrama(fd, buff);
+			received = receiveTrama(fd);
 			//Se receber rej correspondente ao L(s) atual, reenvia mensagem(bytesSent nao incrementa, logo a mesma e enviada)
-			if (((received == TRAMA_REJ1) && (ns == 0)) || ((received == TRAMA_REJ0) && (ns == 1))){
+			if (((received->tipo == TRAMA_REJ1) && (Llayer->ls == 0)) || ((received->tipo == TRAMA_REJ0) && (Llayer->ls == 1))){
 				desativa_alarm();
+				freeTrama(received);
 				break;
 			}
 			//Se receber rr correspondente ao L(s) atual, incrementa o numero de bytes enviados e passa para envio de proxima trama
-			else if (((received == TRAMA_RR0) && (ns == 0)) || ((received == TRAMA_RR1) && (ns == 1))){
+			else if (((received->tipo == TRAMA_RR0) && (Llayer->ls == 1)) || ((received->tipo == TRAMA_RR1) && (Llayer->ls == 0))){
 				desativa_alarm();
-				if(ns == 0) ns = 1;else ns = 0;
-				bytesSent+=toSend;
+				Llayer->ls = !(Llayer->ls);
+				receivedStop = TRUE;
+				freeTrama(received);
+				break;
 			}
 			//Caso contrario continua a espera de mensagens
-			else continue;
+			else {freeTrama(received);continue;}
 		}
 	}
-	if(bytesSent == length)
-		return SUCCESS;
+	if(sent < length + INF_TRAMA_SIZE)
+		return sent;
 	return FAILURE;
 }
 
 // --------------------------- LL READ -------------------------------
 int llread(int fd, char* buf){
-	char buff[MAX_SIZE];
 	int receivedStop = FALSE;
-	int lr = 0;
+	while(!receivedStop){
+		Trama* tramaRecebida = receiveTrama(fd);
+		//Se detetar erro no bcc1 nao faz nada
+		if(tramaRecebida->tipo == TRAMA_ERROR){
+			continue;
+		}
+		//Se detetar erro no bcc2 envia REJ
+		else if(tramaRecebida->tipo == TRAMA_ERROR2){
+			if(!Llayer == 0){
+				writeToFd(fd,REJ0,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+			}else writeToFd(fd,REJ1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+		}else if((tramaRecebida->tipo == TRAMA_I_0 && Llayer->ls == 0) || (tramaRecebida->tipo == TRAMA_I_1 && Llayer->ls == 1)){
+			if(!Llayer == 0){
+				writeToFd(fd,RR0,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+			}else writeToFd(fd,RR1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+			Llayer->ls = !Llayer->ls;
+			//Copiar trama para buffer
+			memcpy(buf,tramaRecebida->trama+TRAMA_DATA_OFFSET,tramaRecebida->length-INF_TRAMA_SIZE);
+		}
+		freeTrama(tramaRecebida);
+	}
 
 	return -1;
 }
@@ -198,22 +213,21 @@ int llread(int fd, char* buf){
 // --------------------------- LL CLOSE ------------------------------
 int llclose(int fd, int flag){
 
-	char buff[MAX_SIZE];
-
+	Trama* res;
 	switch(flag){
 		case TRANSMITTER:
 		{
 			printf("Trama DISC enviada\n");
-			int res = 0;
-			while (conta_alarm < Llayer->numTransmissions && res != TRAMA_DISC)
+
+			while (conta_alarm < Llayer->numTransmissions && res->tipo != TRAMA_DISC)
 			{
 				writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				flag_alarm = ALARM_NOT_AWAKE;
-				while (flag_alarm == ALARM_NOT_AWAKE && res != TRAMA_DISC) {
+				while (flag_alarm == ALARM_NOT_AWAKE && res->tipo != TRAMA_DISC) {
 					alarm(Llayer->timeout);
-					res = receiveTrama(fd, buff);
+					res = receiveTrama(fd);
 				}
-				if(res == TRAMA_DISC) {
+				if(res->tipo == TRAMA_DISC) {
 					desativa_alarm();
 					if (writeToFd(fd,UA,CONTROL_TRAMA_SIZE,CONTROL_TRAMA) != FAILURE) return SUCCESS;
 				}
@@ -223,13 +237,13 @@ int llclose(int fd, int flag){
 		case RECEIVER:
 		{
 			// aguardar DISC
-			int res = receiveTrama(fd, buff);
-			if (res == TRAMA_DISC){
+			res = receiveTrama(fd);
+			if (res->tipo == TRAMA_DISC){
 				// enviar DISC
 				writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				printf("Trama DISC enviada\n");
-				res = receiveTrama(fd, buff);
-				if (res != TRAMA_UA) return FAILURE;
+				res = receiveTrama(fd);
+				if (res->tipo != TRAMA_UA) return FAILURE;
 			}
 			return SUCCESS;
 		} break;
@@ -270,16 +284,19 @@ int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
 /**
 * something something write comments please
 */
-int receiveTrama(int fd, char* buff){
+Trama* receiveTrama(int fd){
 	int tramaOffset = 0;
 	char lastByte;
 	int state = START;
+	char* buff = (char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
+	Trama* ret = (Trama*)malloc(sizeof(Trama));
 
 	while(state != STOP_ST){
 		int nbytes = read(fd,&lastByte,1);
-		printf("%d\n",nbytes);
+		printf("%d - %x\n",nbytes,lastByte);
 		if(nbytes != 1){
-			return -1;
+			ret->tipo = TRAMA_ERROR;
+			return ret;
 		}
 
 		switch(state){
@@ -343,35 +360,48 @@ int receiveTrama(int fd, char* buff){
 	}
 	//Tramas de data
 	if (buff[2] == C_I_0 || buff[2] == C_I_1){
+		//Cria novo buffer para guardar data depois de destuff
+		char* newBuff = (char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
+		tramaOffset = destuff(buff,tramaOffset,newBuff);
+		free(buff);
+		ret->trama = newBuff;
 		//Testa se bcc2 e valido
-		char bcc2 = buff[tramaOffset-2];
+		char bcc2 = newBuff[tramaOffset-2];
 		char bcc2test = 0;
 		int j;
 		for(j = 4;j < tramaOffset-2;j++){
-			bcc2test ^= buff[j];
+			bcc2test ^= newBuff[j];
 		}
-		if(bcc2 != bcc2test)
-			return TRAMA_ERROR2;
-		if(buff[2] == C_I_0)return TRAMA_I_0;
-		else return TRAMA_I_1;
+		if(bcc2 != bcc2test){
+			ret->tipo = TRAMA_ERROR2;
+			return ret;
+		}
+
+		if(newBuff[2] == C_I_0)ret->tipo = TRAMA_I_0;
+		else ret->tipo = TRAMA_I_1;
+		ret->length = tramaOffset;
+		return ret;
 	}
 
 	//Tramas de controlo
+	ret->length = CONTROL_TRAMA_SIZE;
+	ret->trama = buff;
 	if(buff[2] == C_SET){
-		return TRAMA_SET;
+		ret->tipo = TRAMA_SET;
 	}else if(buff[2] == C_UA){
-		return TRAMA_UA;
+		ret->tipo = TRAMA_UA;
 	}else if (buff[2] == C_RR0) {
-		return TRAMA_RR0;
+		ret->tipo = TRAMA_RR0;
 	}else if (buff[2] == C_RR1) {
-		return TRAMA_RR1;
+		ret->tipo = TRAMA_RR1;
 	}else if (buff[2] == C_REJ0) {
-		return TRAMA_REJ0;
+		ret->tipo = TRAMA_REJ0;
 	}else if (buff[2] == C_REJ1) {
-		return TRAMA_REJ1;
+		ret->tipo = TRAMA_REJ1;
 	}else	if (buff[2] == C_DISC){
-		return TRAMA_DISC;
-	} return TRAMA_ERROR;
+		ret->tipo = TRAMA_DISC;
+	}else ret->tipo = TRAMA_ERROR;
+	return ret;
 }
 
 int stuffData(char* buf, int arraySize,char* newBuf){
@@ -418,6 +448,12 @@ int destuff(char* buf, int arraySize,char* newBuf){
 	return j+2;
 
 }
+
+void freeTrama(Trama* trama){
+	free(trama->trama);
+	free(trama);
+}
+
 
 int main(int argc,  char** argv)
 {
