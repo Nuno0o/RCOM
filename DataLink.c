@@ -211,13 +211,16 @@ int llread(int fd, char* buf){
 			}else writeToFd(fd,REJ1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 			freeTrama(tramaRecebida);
 
-		}else if((tramaRecebida->tipo == TRAMA_I_0 && Llayer->ls == 0) || (tramaRecebida->tipo == TRAMA_I_1 && Llayer->ls == 1)){
+		}else if(tramaRecebida->tipo == TRAMA_I_0 || tramaRecebida->tipo == TRAMA_I_1){
 
-			if(!Llayer->ls == 0){
+			if(tramaRecebida->tipo == TRAMA_I_0){
+				writeToFd(fd,RR1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+				Llayer->ls = 1;
+			}else {
 				writeToFd(fd,RR0,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
-			}else {writeToFd(fd,RR1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);};
-
-			Llayer->ls = !Llayer->ls;
+				Llayer->ls = 0;
+			};
+			
 
 			receivedStop = TRUE;
 			//Copiar trama para buffer
