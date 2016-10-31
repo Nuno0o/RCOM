@@ -15,4 +15,6 @@ typedef struct {
 
 LinkLayer* createLinkLayer(char* port, int baudRate, int sequenceNumber, int timeout, int numTransmissions);
 
+extern LinkLayer* Llayer;
+
 #endif

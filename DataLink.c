@@ -31,7 +31,6 @@ int num = 1;
 
 char buf[10];
 
-LinkLayer* Llayer;
 
 // ----------------------------------------------------------
 // ------------------- ALARM MANAGEMENT ---------------------
@@ -74,22 +73,24 @@ int llopen(int flag)
 		case TRANSMITTER:
 		{
 			printf("Connecting...\n");
-			while (conta_alarm < Llayer->numTransmissions && res->tipo != TRAMA_UA)
+			while (conta_alarm < Llayer->numTransmissions)
 			{
 				//Envia trama SET
 				writeToFd(fd,SET,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				flag_alarm = ALARM_NOT_AWAKE;
-				while (flag_alarm == ALARM_NOT_AWAKE && res->tipo != TRAMA_UA) {
+				while (flag_alarm == ALARM_NOT_AWAKE) {
 					alarm(Llayer->timeout);
 					//Aguarda trama UA
 					res = receiveTrama(fd);
 				}
 				if(res->tipo == TRAMA_UA) {
 					desativa_alarm();
+					printf("Succeded\n");
+					return fd;
 				}else printf("Retrying...\n");
 			}
-			if(fd != -1) printf("Succeded\n");
-			return fd;
+			printf("Failed\n");
+			return -1;
 		} break;
 		case RECEIVER:
 		{
@@ -220,7 +221,7 @@ int llread(int fd, char* buf){
 				writeToFd(fd,RR0,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				Llayer->ls = 0;
 			};
-			
+
 
 			receivedStop = TRUE;
 			//Copiar trama para buffer
@@ -480,7 +481,7 @@ void freeTrama(Trama* trama){
 }
 
 
-int main(int argc,  char** argv)
+/*int main(int argc,  char** argv)
 {
 	signal(SIGALRM, atende_alarm);
 
@@ -501,12 +502,12 @@ int main(int argc,  char** argv)
 	}else{
 		printf("Third argument has to be TRANSMITTER or RECEIVER");
 		exit(1);
-	}
+	}*/
 	/*
 	Open serial port device for reading and writing and not as controlling tty
 	because we don't want to get killed if linenoise sends CTRL-C.
 	*/
-	Llayer = createLinkLayer(argv[1], BAUDRATE, 0, 3, 3);
+	/*Llayer = createLinkLayer(argv[1], BAUDRATE, 0, 3, 3);
 	int fd = llopen(transorres);
 	if (fd <0) {perror(argv[1]); exit(-1); }
 	if(transorres == TRANSMITTER){
@@ -521,4 +522,4 @@ int main(int argc,  char** argv)
 	close(fd);
 
 	return 0;
-}
+}*/

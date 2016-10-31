@@ -1,7 +1,7 @@
 all: bin/DataLink
 
-bin/DataLink: bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o
-	cc -o bin/DataLink bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o -Wall
+bin/DataLink: bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o
+	cc -o bin/DataLink bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o -Wall
 
 bin/DataLink.o: DataLink.c DataLink.h File.h LinkLayer.h defines.h termiosManip.h
 	cc -c DataLink.c -o bin/DataLink.o -Wall
@@ -14,6 +14,9 @@ bin/LinkLayer.o: LinkLayer.c LinkLayer.h
 
 bin/File.o: File.c File.h
 	cc -c File.c -o bin/File.o -Wall
+	
+bin/ApplicationLayer.o: ApplicationLayer.c ApplicationLayer.h
+	cc -c ApplicationLayer.c -o bin/ApplicationLayer.o -Wall
 
 clean:
 	-rm bin/DataLink bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o

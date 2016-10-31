@@ -9,9 +9,13 @@ typedef struct {
     int length;
 } Trama;
 
+
 void atende_alarm(int signo);
 void desativa_alarm(void);
 int llopen(int flag);
+int llwrite(int fd, char* buf, int length);
+int llread(int fd, char* buf);
+int llclose(int fd, int flag);
 int stuffData(char* buf, int arraySize,char* newBuf);
 int destuff(char* buf, int arraySize,char* newBuf);
 int writeToFd(int filed,char* buf,int length, TramaType type);
