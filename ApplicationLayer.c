@@ -17,9 +17,17 @@
 
 LinkLayer* Llayer;
 
+
+// -----------------------------------------------------------------------------
+// ---------------------------------- RECEIVER ---------------------------------
+// -----------------------------------------------------------------------------
 int receiveFile(){
   File* file = (File*)malloc(sizeof(File));
-  int fd = llopen(RECEIVER);
+  int fd;
+  if ((fd = llopen(RECEIVER)) == FAILURE){
+    perror("Connection Attempt failed. Exiting...\n");
+    exit(FAILURE);
+  }
 
   receiveControl(fd,CONTROL_START,file);
 
@@ -29,14 +37,23 @@ int receiveFile(){
 
   receiveData(fd,seq,file);
 
-  llclose(fd,RECEIVER);
+  if (llclose(fd,RECEIVER) == FAILURE){
+    perror("Closing attempt failed. Exiting... \n");
+    exit(FAILURE);
+  }
 }
 
-
+// -----------------------------------------------------------------------------
+// ---------------------------------- TRANSMITTER ------------------------------
+// -----------------------------------------------------------------------------
 int sendFile(){
 
   File* file = loadFile();
-  int fd = llopen(TRANSMITTER);
+  int fd;
+  if ((fd = llopen(TRANSMITTER)) == FAILURE){
+    perror("Connection attempt failed. Exiting...\n");
+    exit(FAILURE);
+  }
 
   sendControl(fd,CONTROL_START,file);
 
@@ -44,7 +61,10 @@ int sendFile(){
 
   sendData(fd,seq,file->fileSize,0,file);
 
-  llclose(fd,TRANSMITTER);
+  if(llclose(fd,TRANSMITTER) == FAILURE){
+    perror("Closing attempt failed. Exiting...\n");
+    exit(FAILURE);
+  }
 }
 
 int sendData(int fd,int seq,int nbyte,int foffset,File* file){
@@ -99,7 +119,9 @@ int receiveData(int fd,int seq,File* file){
 }
 
 
-
+// -----------------------------------------------------------------------------
+// ------------------------ FILE MANAGEMENT ------------------------------------
+// ----------------------------------------------------------------------------
 File * loadFile(){
   File* file;
   unsigned char * fileName = (unsigned char*)malloc(MAX_SIZE);
