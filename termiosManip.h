@@ -3,6 +3,6 @@
 #include <termios.h>
 
 int saveTermios(int filed,struct termios * ter);
-int setTermios(int filed,struct termios * ter);
+int setTermios(int filed,struct termios * ter,int baudrate);
 int resetTermios(int filed,struct termios * ter);
 #endif

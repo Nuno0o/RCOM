@@ -70,6 +70,7 @@ int receiveFile(){
     perror("Closing attempt failed. Exiting...\n");
     exit(FAILURE);
   }else printf("Successfully closed connection.\n");
+  return SUCCESS;
 }
 
 // -----------------------------------------------------------------------------
@@ -124,6 +125,7 @@ int sendFile(){
     perror("Closing attempt failed. Exiting...\n");
     exit(FAILURE);
   }else printf("Successfully closed connection.\n");
+  return SUCCESS;
 }
 
 int sendData(int fd,int seq,int nbyte,int foffset,File* file){
@@ -233,15 +235,6 @@ int sendControl(int fd,int c,File* file){
   for(j = 0;j < strlen(fileNameWithoutDir);j++){
     buf[i++] = fileNameWithoutDir[j];
   }
-
-  /*buf[i++] = CONTROL_TYPE_MODE;
-  unsigned char* mode = strcpy(file->fileMode);
-  printf("MODECPY: %s\n", mode);
-  buf[i++] = (unsigned char)strlen(file->fileMode);
-  for (j = 0; j < strlen(file->fileMode);j++){
-    buf[i++] = file->fileMode[j];
-  }*/
-
   if(c == CONTROL_START)
     printf("Sending file \"%s\"(%ld bytes)\n",fileNameWithoutDir,file->fileSize);
 
@@ -285,26 +278,8 @@ int receiveControl(int fd, int c,File* file){
       file->fileName = value;
       i+= length;
     }
-    /*else if(currType == CONTROL_TYPE_MODE){
-      int length = (int)buf[i++];
-      unsigned char* value = (unsigned char*)malloc(length);
-      memcpy(value,buf+i,length);
-      printf("LENGTH: %d\n", length);
-      printf("VALUE: %s\n", value);
-      file->fileMode = value;
-      i+= length;
-    }*/
   }
-
-  /*if(c == CONTROL_START)
-    printf("Receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
-
-  if(c == CONTROL_END)
-    printf("Finished receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
-
-  printFileProps(file);*/
   return SUCCESS;
-
 }
 
 
@@ -312,10 +287,10 @@ int receiveControl(int fd, int c,File* file){
 int main(int argc, unsigned char** argv){
   signal(SIGALRM, atende_alarm);
 
-	if ( (argc != 3) ||
+	if ( (argc < 3 || argc > 7) ||
 	((strcmp("/dev/ttyS0", argv[1])!=0) &&
 	(strcmp("/dev/ttyS1", argv[1])!=0) )) {
-		printf("Usage:\tnserial SerialPort MODE\n\tex: nserial /dev/ttyS1 TRANSMITTER\n");
+		printf("Usage:\tnserial SerialPort MODE\n\tex: nserial /dev/ttyS1 [TRANSMITTER|RECEIVER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT] [MAX_TRAMA_SIZE]\n");
 		exit(1);
 	}
 
@@ -330,10 +305,30 @@ int main(int argc, unsigned char** argv){
 		printf("Third argument has to be TRANSMITTER or RECEIVER");
 		exit(1);
 	}
-  Llayer = createLinkLayer(argv[1], BAUDRATE, 0, 3, 3);
+
+  Llayer = createLinkLayer(argv[1], BAUDRATE_DEF, 0, ATTEMPTS_DEF, TIMEOUT_DEF, DATA_DEFAULT_SIZE);
+
+  if (argc >= 4){
+    int baudRate = atoi(argv[3]);
+    if (setBaudrate(baudRate, Llayer) != SUCCESS) return FAILURE;
+  }
+  if (argc >= 5){
+    int maxAttempts = atoi(argv[4]);
+    if (setMaxAttempts(maxAttempts,Llayer) != SUCCESS) return FAILURE;
+  }
+  if (argc >= 6){
+    int timeout = atoi(argv[5]);
+    if (setTimeout(timeout, Llayer) != SUCCESS) return FAILURE;
+  }
+  if (argc >= 7){
+    int maxSize = atoi(argv[4]);
+    if (setMaxSize(maxSize,Llayer) != SUCCESS) return FAILURE;
+  }
+
   if(transorres == TRANSMITTER){
 		sendFile();
 	}else{
 		receiveFile();
 	}
+  return 0;
 }

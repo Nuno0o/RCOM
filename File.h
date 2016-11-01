@@ -8,7 +8,7 @@ typedef struct {
     unsigned char*           fileMode;
     FILE*           fileStream;
     long int        fileSize;
-    char*           fileName;
+    unsigned char*           fileName;
 } File;
 
 File* initFile(char* fileName,char* fileMode);

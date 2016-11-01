@@ -66,7 +66,7 @@ int llopen(int flag)
 
 	// Ativar modo canonico
 	saveTermios(fd,&oldtio);
-	setTermios(fd,&newtio);
+	setTermios(fd,&newtio,Llayer->baudRate);
 
 	Trama* res;
 	switch(flag){

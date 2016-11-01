@@ -20,9 +20,9 @@ int resetTermios(int filed, struct termios * ter){
     return 0;
 }
 
-int setTermios(int filed,struct termios * ter){
+int setTermios(int filed,struct termios * ter,int baudrate){
 	  bzero(ter, sizeof(*ter));
-    ter->c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    ter->c_cflag = baudrate | CS8 | CLOCAL | CREAD;
     ter->c_iflag = IGNPAR;
     ter->c_oflag = 0;
     /* set input mode (non-canonical, no echo,...) */

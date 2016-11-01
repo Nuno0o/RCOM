@@ -1,7 +1,29 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
-#define BAUDRATE B9600
+#include <termios.h>
+
+#define BAUDRATE0 B0
+#define BAUDRATE50 B50
+#define BAUDRATE75 B75
+#define BAUDRATE110 B110
+#define BAUDRATE134 B134
+#define BAUDRATE150 B150
+#define BAUDRATE200 B200
+#define BAUDRATE300 B300
+#define BAUDRATE600 B600
+#define BAUDRATE1200 B1200
+#define BAUDRATE1800 B1800
+#define BAUDRATE2400 B2400
+#define BAUDRATE4800 B4800
+#define BAUDRATE9600 B9600
+#define BAUDRATE19200 B19200
+#define BAUDRATE38400 B38400
+
+// Default specs
+#define BAUDRATE_DEF B9600
+#define ATTEMPTS_DEF 3
+#define TIMEOUT_DEF 3
 
 #define MODEMDEVICE "/dev/ttyS1"
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
