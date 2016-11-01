@@ -17,19 +17,18 @@ volatile int STOP=FALSE;
 
 struct termios oldtio,newtio;
 
-char SET[CONTROL_TRAMA_SIZE] = {FLAG,A,C_SET, A ^ C_SET,FLAG};
-char UA[CONTROL_TRAMA_SIZE] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
-char DISC[CONTROL_TRAMA_SIZE] = {FLAG, A, C_DISC, A ^ C_DISC, FLAG};
-char RR0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR0, A ^ C_RR0, FLAG};
-char RR1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR1, A ^ C_RR1, FLAG};
-char REJ0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ0, A ^ C_REJ0, FLAG};
-char REJ1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ1, A ^ C_REJ1, FLAG};
+unsigned char SET[CONTROL_TRAMA_SIZE] = {FLAG,A,C_SET, A ^ C_SET,FLAG};
+unsigned char UA[CONTROL_TRAMA_SIZE] = {FLAG,A,C_UA,A ^ C_UA,FLAG};
+unsigned char DISC[CONTROL_TRAMA_SIZE] = {FLAG, A, C_DISC, A ^ C_DISC, FLAG};
+unsigned char RR0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR0, A ^ C_RR0, FLAG};
+unsigned char RR1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_RR1, A ^ C_RR1, FLAG};
+unsigned char REJ0[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ0, A ^ C_REJ0, FLAG};
+unsigned char REJ1[CONTROL_TRAMA_SIZE] = {FLAG, A, C_REJ1, A ^ C_REJ1, FLAG};
 
 int flag_alarm = ALARM_NOT_AWAKE;
 int conta_alarm = 0;
 int num = 1;
 
-char buf[10];
 
 
 // ----------------------------------------------------------
@@ -59,9 +58,9 @@ int llopen(int flag)
 	siginterrupt(SIGALRM, TRUE);
 
 	// Abrir porta
-	int fd = open(Llayer->port, O_RDWR | O_NOCTTY );
+	int fd = open((char*)Llayer->port, O_RDWR | O_NOCTTY );
 	if (fd <0) {
-		perror(Llayer->port); exit(-1);
+		perror((char*)Llayer->port); exit(-1);
 	}
 
 	// Ativar modo canonico
@@ -73,25 +72,28 @@ int llopen(int flag)
 		case TRANSMITTER:
 		{
 			printf("Connecting...\n");
+			flag_alarm = ALARM_AWAKE;
 			while (conta_alarm < Llayer->numTransmissions)
 			{
 				//Envia trama SET
-				writeToFd(fd,SET,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
-				flag_alarm = ALARM_NOT_AWAKE;
-				while (flag_alarm == ALARM_NOT_AWAKE) {
+				if(flag_alarm == ALARM_AWAKE){
+					writeToFd(fd,SET,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+					flag_alarm = ALARM_NOT_AWAKE;
 					alarm(Llayer->timeout);
-					//Aguarda trama UA
-					res = receiveTrama(fd);
 				}
+
+				//Aguarda trama UA
+				res = receiveTrama(fd);
 				if(res->tipo == TRAMA_UA) {
 					desativa_alarm();
 					printf("Succeded\n");
 					return fd;
-				}else printf("Retrying...\n");
+				}
 			}
 			printf("Failed\n");
 			return -1;
 		} break;
+
 		case RECEIVER:
 		{
 			printf("Awaiting connection...\n");
@@ -108,13 +110,13 @@ int llopen(int flag)
 }
 
 // --------------------------- LL WRITE ------------------------------
-Trama* makeDataTrama(char *buf,int length,int toggle){
+Trama* makeDataTrama(unsigned char *buf,int length,int toggle){
 	Trama* ret = (Trama*)malloc(sizeof(Trama));
 	if(toggle == 0) ret->tipo = TRAMA_I_0; else ret->tipo = TRAMA_I_1;
 	ret->length = length + INF_TRAMA_SIZE;
 
 	//malloc(FLAG + A + C + BCC1 + DATA + BCC2 + FLAG)
-	ret->trama = (char*)malloc(length + INF_TRAMA_SIZE);
+	ret->trama = (unsigned char*)malloc(length + INF_TRAMA_SIZE);
 	//Coloca byte 1 FLAG
 	ret->trama[0] = FLAG;
 	//Coloca byte 2 A
@@ -142,7 +144,7 @@ Trama* makeDataTrama(char *buf,int length,int toggle){
 
 }
 
-int llwrite(int fd, char* buf, int length){
+int llwrite(int fd, unsigned char* buf, int length){
 	printf("Message sent\n");
 	int receivedStop = FALSE;
 	//Number of bytes sent
@@ -162,6 +164,7 @@ int llwrite(int fd, char* buf, int length){
 			alarm(Llayer->timeout);
 
 			received = receiveTrama(fd);
+
 			//Se receber rej correspondente ao L(s) atual, reenvia mensagem(bytesSent nao incrementa, logo a mesma e enviada)
 			if (((received->tipo == TRAMA_REJ1) && (Llayer->ls == 0)) || ((received->tipo == TRAMA_REJ0) && (Llayer->ls == 1))){
 				desativa_alarm();
@@ -190,7 +193,7 @@ int llwrite(int fd, char* buf, int length){
 }
 
 // --------------------------- LL READ -------------------------------
-int llread(int fd, char* buf){
+int llread(int fd, unsigned char* buf){
 	printf("Receiving message\n");
 	int receivedStop = FALSE;
 	int ret = -1;
@@ -213,7 +216,6 @@ int llread(int fd, char* buf){
 			freeTrama(tramaRecebida);
 
 		}else if(tramaRecebida->tipo == TRAMA_I_0 || tramaRecebida->tipo == TRAMA_I_1){
-
 			if(tramaRecebida->tipo == TRAMA_I_0){
 				writeToFd(fd,RR1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				Llayer->ls = 1;
@@ -230,7 +232,6 @@ int llread(int fd, char* buf){
 		}
 		freeTrama(tramaRecebida);
 	}
-
 	return ret;
 }
 
@@ -239,16 +240,18 @@ int llclose(int fd, int flag){
 	printf("Disconnecting...");
 	Trama* res;
 	switch(flag){
+
 		case TRANSMITTER:
 		{
-			while (conta_alarm < Llayer->numTransmissions && res->tipo != TRAMA_DISC)
+			flag_alarm = ALARM_AWAKE;
+			while (conta_alarm < Llayer->numTransmissions)
 			{
-				writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
-				flag_alarm = ALARM_NOT_AWAKE;
-				while (flag_alarm == ALARM_NOT_AWAKE && res->tipo != TRAMA_DISC) {
+				if(flag_alarm == ALARM_AWAKE){
+					writeToFd(fd,DISC,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
+					flag_alarm = ALARM_NOT_AWAKE;
 					alarm(Llayer->timeout);
-					res = receiveTrama(fd);
 				}
+				res = receiveTrama(fd);
 				if(res->tipo == TRAMA_DISC) {
 					desativa_alarm();
 					if (writeToFd(fd,UA,CONTROL_TRAMA_SIZE,CONTROL_TRAMA) != FAILURE) {printf("Succeded\n");return SUCCESS;}
@@ -257,9 +260,10 @@ int llclose(int fd, int flag){
 			printf("Failed\n");
 			return FAILURE;
 		} break;
+
+
 		case RECEIVER:
 		{
-			printf("Disconnecting...");
 			// aguardar DISC
 			res = receiveTrama(fd);
 			if (res->tipo == TRAMA_DISC){
@@ -276,7 +280,7 @@ int llclose(int fd, int flag){
 }
 
 
-int writeToFd(int filed, char* buf, int length, TramaType type){
+int writeToFd(int filed, unsigned char* buf, int length, TramaType type){
 	switch (type){
 		case DATA_TRAMA: return writeTramaToFd(filed, buf, length, TRUE); break;
 		case CONTROL_TRAMA: return writeTramaToFd(filed, buf, length, FALSE); break;
@@ -285,7 +289,7 @@ int writeToFd(int filed, char* buf, int length, TramaType type){
 	return -1;
 }
 
-int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
+int writeTramaToFd(int fd, unsigned char* trama, int length, int requiresStuffing){
 	int sent;
   int sentLength;
 	if (!requiresStuffing) {
@@ -293,7 +297,7 @@ int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
 		sent = write(fd,trama,length);
 	}
 	else{
-		char* newBuf = (char*)malloc((MAX_SIZE+INF_TRAMA_SIZE)*2);//Tamanho maximo da trama depois de stuffing
+		unsigned char* newBuf = (unsigned char*)malloc((MAX_SIZE+INF_TRAMA_SIZE)*2);//Tamanho maximo da trama depois de stuffing
 		sentLength = stuffData(trama,length,newBuf);
 		sent = write(fd,newBuf,sentLength);
 		free(newBuf);
@@ -310,9 +314,9 @@ int writeTramaToFd(int fd, char* trama, int length, int requiresStuffing){
 */
 Trama* receiveTrama(int fd){
 	int tramaOffset = 0;
-	char lastByte;
+	unsigned char lastByte;
 	int state = START;
-	char* buff = (char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
+	unsigned char* buff = (unsigned char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
 	Trama* ret = (Trama*)malloc(sizeof(Trama));
 
 	while(state != STOP_ST){
@@ -374,7 +378,7 @@ Trama* receiveTrama(int fd){
 				tramaOffset++;
 				state = STOP_ST;
 			}//Se a trama for do tipo I, continua a receber ate receber flag
-			else if(lastByte != FLAG && (buf[2] == C_I_0 || buf[2] == C_I_1)){
+			else if(lastByte != FLAG && (buff[2] == C_I_0 || buff[2] == C_I_1)){
 				buff[tramaOffset] = lastByte;
 				tramaOffset++;
 			}
@@ -384,13 +388,13 @@ Trama* receiveTrama(int fd){
 	//Tramas de data
 	if (buff[2] == C_I_0 || buff[2] == C_I_1){
 		//Cria novo buffer para guardar data depois de destuff
-		char* newBuff = (char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
+		unsigned char* newBuff = (unsigned char*)malloc(MAX_SIZE+INF_TRAMA_SIZE);
 		tramaOffset = destuff(buff,tramaOffset,newBuff);
 		free(buff);
 		ret->trama = newBuff;
 		//Testa se bcc2 e valido
-		char bcc2 = newBuff[tramaOffset-2];
-		char bcc2test = 0;
+		unsigned char bcc2 = newBuff[tramaOffset-2];
+		unsigned char bcc2test = 0;
 		int j;
 		for(j = 4;j < tramaOffset-2;j++){
 			bcc2test ^= newBuff[j];
@@ -428,7 +432,7 @@ Trama* receiveTrama(int fd){
 	return ret;
 }
 
-int stuffData(char* buf, int arraySize,char* newBuf){
+int stuffData(unsigned char* buf, int arraySize,unsigned char* newBuf){
 	// copy flag
 	newBuf[0] = buf[0];
 	// j itera em newBuf, i em buf
@@ -451,7 +455,7 @@ int stuffData(char* buf, int arraySize,char* newBuf){
 	return j+2;
 }
 
-int destuff(char* buf, int arraySize,char* newBuf){
+int destuff(unsigned char* buf, int arraySize,unsigned char* newBuf){
 	// copy flag
 	newBuf[0] = buf[0];
 	// Valor para iterar em newBuf
@@ -481,7 +485,7 @@ void freeTrama(Trama* trama){
 }
 
 
-/*int main(int argc,  char** argv)
+/*int main(int argc,  unsigned char** argv)
 {
 	signal(SIGALRM, atende_alarm);
 
@@ -513,7 +517,7 @@ void freeTrama(Trama* trama){
 	if(transorres == TRANSMITTER){
 		llwrite(fd, "ola~", 4);
 	}else{
-		char buffer[10];
+		unsigned char buffer[10];
 		llread(fd,buffer);
 		printf("%c\n",buffer[0]);
 	}

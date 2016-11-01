@@ -4,16 +4,16 @@
 #define MAX_SIZE 256
 
 typedef struct {
-    char* port;
+    unsigned char* port;
     int baudRate;
     unsigned int sequenceNumber;
     unsigned int timeout;
     unsigned int numTransmissions;
-    char frame[MAX_SIZE];
+    unsigned char frame[MAX_SIZE];
     int ls;
 } LinkLayer;
 
-LinkLayer* createLinkLayer(char* port, int baudRate, int sequenceNumber, int timeout, int numTransmissions);
+LinkLayer* createLinkLayer(unsigned char* port, int baudRate, int sequenceNumber, int timeout, int numTransmissions);
 
 extern LinkLayer* Llayer;
 

@@ -4,17 +4,20 @@
 #include <unistd.h>
 #include "File.h"
 
-File* initFile(int fd, char* fileMode){
+File* initFile(char* fileName,char* fileMode){
     FILE* stream;
-    if ((stream = fdopen(fd, fileMode)) == NULL){
-        perror("Error creating FileStruct!\n");
+    stream = fopen(fileName,fileMode);
+    if (stream == NULL){
         return NULL;
     }
     File* retorno = (File*) malloc(sizeof(File));
+    retorno->fd = fileno(stream);
+    retorno->fileName = fileName;
     retorno->fileStream = stream;
-    retorno->fd = fd;
     retorno->fileMode = fileMode;
-    retorno->fileSize = lseek(retorno->fd, 0, SEEK_END) + 1;
+    fseek(stream, 0, SEEK_END);
+    retorno->fileSize = ftell(stream);
+    fseek(stream, 0, SEEK_SET);
     return retorno;
 }
 

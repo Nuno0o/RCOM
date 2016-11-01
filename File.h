@@ -7,8 +7,10 @@ typedef struct {
     int             fd;
     char*           fileMode;
     FILE*           fileStream;
-    unsigned int    fileSize;
+    long int        fileSize;
+    char*           fileName;
 } File;
 
+File* initFile(char* fileName,char* fileMode);
 
 #endif

@@ -65,4 +65,11 @@
 
 #define TRAMA_DATA_OFFSET 4
 
+//App LinkLayer
+#define CONTROL_START 2
+#define CONTROL_END 3
+#define CONTROL_DATA 1
+#define CONTROL_TYPE_NAME 1
+#define CONTROL_TYPE_SIZE 0
+
 #endif
