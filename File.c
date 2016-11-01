@@ -27,3 +27,11 @@ long getFileOffset(File* file){
     }
     return -1;
 }
+
+void printFileProps(File* file){
+  printf("File Properties:\n");
+  printf("Fd: %d\n", file->fd);
+  printf("Name: %s\n", file->fileName);
+  printf("Mode: %s\n", file->fileMode);
+  printf("Size: %d\n", file->fileSize);
+}

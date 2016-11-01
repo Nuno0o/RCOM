@@ -128,6 +128,7 @@ File * loadFile(){
   printf("Insert file name: ");
   scanf("%s",fileName);
   file = initFile(fileName,"rb");
+  printFileProps(file);
   if(file == NULL){
     printf("Error opening file \"%s\", exiting...\n",fileName);
     exit(1);
@@ -169,6 +170,14 @@ int sendControl(int fd,int c,File* file){
   for(j = 0;j < strlen(fileNameWithoutDir);j++){
     buf[i++] = fileNameWithoutDir[j];
   }
+
+  /*buf[i++] = CONTROL_TYPE_MODE;
+  unsigned char* mode = strcpy(file->fileMode);
+  printf("MODECPY: %s\n", mode);
+  buf[i++] = (unsigned char)strlen(file->fileMode);
+  for (j = 0; j < strlen(file->fileMode);j++){
+    buf[i++] = file->fileMode[j];
+  }*/
 
   if(c == CONTROL_START)
     printf("Sending file \"%s\"(%ld bytes)\n",fileNameWithoutDir,file->fileSize);
@@ -214,14 +223,25 @@ int receiveControl(int fd, int c,File* file){
       file->fileName = value;
       i+= length;
     }
+    /*else if(currType == CONTROL_TYPE_MODE){
+      int length = (int)buf[i++];
+      unsigned char* value = (unsigned char*)malloc(length);
+      memcpy(value,buf+i,length);
+      printf("LENGTH: %d\n", length);
+      printf("VALUE: %s\n", value);
+      file->fileMode = value;
+      i+= length;
+    }*/
   }
+
   if(c == CONTROL_START)
     printf("Receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
 
   if(c == CONTROL_END)
     printf("Finished receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
 
-    return SUCCESS;
+  printFileProps(file);
+  return SUCCESS;
 
 }
 

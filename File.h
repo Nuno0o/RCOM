@@ -5,7 +5,7 @@
 
 typedef struct {
     int             fd;
-    char*           fileMode;
+    unsigned char*           fileMode;
     FILE*           fileStream;
     long int        fileSize;
     char*           fileName;

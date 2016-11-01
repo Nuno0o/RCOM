@@ -71,5 +71,6 @@
 #define CONTROL_DATA 1
 #define CONTROL_TYPE_NAME 1
 #define CONTROL_TYPE_SIZE 0
+#define CONTROL_TYPE_MODE 2
 
 #endif
