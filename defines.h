@@ -73,4 +73,6 @@
 #define CONTROL_TYPE_SIZE 0
 #define CONTROL_TYPE_MODE 2
 
+#define DATA_DEFAULT_SIZE 256
+
 #endif

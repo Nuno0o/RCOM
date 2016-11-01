@@ -24,23 +24,52 @@ LinkLayer* Llayer;
 int receiveFile(){
   File* file = (File*)malloc(sizeof(File));
   int fd;
-  if ((fd = llopen(RECEIVER)) == FAILURE){
+  printf("Awaiting connection from transmitter...\n");
+  fd = llopen(RECEIVER);
+  if (fd < 0){
     perror("Connection Attempt failed. Exiting...\n");
     exit(FAILURE);
-  }
+  }else printf("Connection established\n");
 
-  receiveControl(fd,CONTROL_START,file);
+  if(receiveControl(fd,CONTROL_START,file) < 0){
+    printf("Error receiving CONTROL_START:timed out\n");
+  }else printf("CONTROL_START received successfully.\nReceiving file \"%s\"(%d bytes)\n",file->fileName,file->fileSize);
 
   file->fileStream = fopen(file->fileName,"wb");
 
+  //numero na sequencia a ser enviada
   int seq = 0;
+  int totalReceived = 0;
 
-  receiveData(fd,seq,file);
+  while(totalReceived < file->fileSize){
+    int received = receiveData(fd,seq,file);
+    //Se for repetido
+    if(received == 0){
+      continue;
+    }else if(received < 0){
+      printf("Error receiving DATA,exiting...\n");
+      exit(1);
+    }
+    totalReceived += received;
+    seq++;
+    printf("Received: %d/%d bytes\n",totalReceived,file->fileSize);
 
-  if (llclose(fd,RECEIVER) == FAILURE){
-    perror("Closing attempt failed. Exiting... \n");
-    exit(FAILURE);
   }
+
+  if(fclose(file->fileStream) != 0){
+    printf("Error closing file.\n");
+    exit(1);
+  }else printf("File Received successfully\n");
+
+  if(receiveControl(fd,CONTROL_END,file) < 0){
+    printf("Error receiving CONTROL_END:timed out\n");
+    exit(1);
+  }else printf("CONTROL_END received successfully.\n");
+
+  if(llclose(fd,TRANSMITTER) < 0){
+    perror("Closing attempt failed. Exiting...\n");
+    exit(FAILURE);
+  }else printf("Successfully closed connection.\n");
 }
 
 // -----------------------------------------------------------------------------
@@ -50,21 +79,51 @@ int sendFile(){
 
   File* file = loadFile();
   int fd;
-  if ((fd = llopen(TRANSMITTER)) == FAILURE){
-    perror("Connection attempt failed. Exiting...\n");
-    exit(FAILURE);
+  printf("Attempting to connect...\n");
+  fd = llopen(TRANSMITTER);
+  if (fd < 0){
+    perror("Connection attempt failed (timed out). Exiting...\n");
+    exit(1);
+  }else printf("Connection established.\n");
+
+  if(sendControl(fd,CONTROL_START,file) < 0){
+    printf("Error sending CONTROL_START:timed out\n");
+    exit(1);
+  }else printf("CONTROL_START sent successfully.\n");
+
+  //numero na sequencia a ser enviada
+  int seq = 0;
+  int totalSent = 0;
+
+  while(totalSent < file->fileSize){
+    int toSend;
+    if(file->fileSize - totalSent > DATA_DEFAULT_SIZE){
+      toSend = DATA_DEFAULT_SIZE;
+    }else toSend = file->fileSize - totalSent;
+    if(sendData(fd,seq % DATA_DEFAULT_SIZE,toSend,totalSent,file) < 0){
+      printf("Error sending DATA:timed out\n");
+      exit(1);
+    }else{
+      totalSent += toSend;
+      seq++;
+      printf("Sent: %d/%d bytes\n",totalSent,file->fileSize);
+    }
   }
 
-  sendControl(fd,CONTROL_START,file);
+  if(sendControl(fd,CONTROL_END,file) < 0){
+    printf("Error sending CONTROL_END:timed out\n");
+    exit(1);
+  }else printf("CONTROL_END sent successfully.\n");
 
-  int seq = 0;
+  if(fclose(file->fileStream) != 0){
+    printf("Error closing file.\n");
+    exit(1);
+  }else printf("File Sent successfully\n");
 
-  sendData(fd,seq,file->fileSize,0,file);
-
-  if(llclose(fd,TRANSMITTER) == FAILURE){
+  if(llclose(fd,TRANSMITTER) < 0){
     perror("Closing attempt failed. Exiting...\n");
     exit(FAILURE);
-  }
+  }else printf("Successfully closed connection.\n");
 }
 
 int sendData(int fd,int seq,int nbyte,int foffset,File* file){
@@ -105,8 +164,10 @@ int receiveData(int fd,int seq,File* file){
     return FAILURE;
   }
   //Verifica se o pacote recebido é o proximo item da sequencia
-  if(buf[i++] != seq){
-    return FAILURE;
+  if(buf[i++] != (unsigned char)seq){
+    if(buf[i++] == (unsigned char)seq -1)
+      return 0;
+    else return FAILURE;
   }
   int l2 = (int)buf[i++];
   int l1 = (int)buf[i++];
@@ -115,6 +176,8 @@ int receiveData(int fd,int seq,File* file){
   memcpy(tempBuf,buf+i,nbyte);
 
   fwrite(tempBuf,sizeof(unsigned char),nbyte,file->fileStream);
+
+  return nbyte;
 
 }
 
@@ -128,11 +191,11 @@ File * loadFile(){
   printf("Insert file name: ");
   scanf("%s",fileName);
   file = initFile(fileName,"rb");
-  printFileProps(file);
   if(file == NULL){
     printf("Error opening file \"%s\", exiting...\n",fileName);
     exit(1);
   }else printf("File loaded with success.\n");
+  printFileProps(file);
 
   return file;
 }
@@ -204,7 +267,6 @@ int receiveControl(int fd, int c,File* file){
   //Cada ciclo le um parametro TLV
   while(i < messageSize){
     int currType = (int)buf[i++];
-    printf("%d\n",currType);
     if(currType == CONTROL_TYPE_SIZE){
       int length = (int)buf[i++];
       unsigned char* value = (unsigned char*)malloc(length+1);
@@ -234,13 +296,13 @@ int receiveControl(int fd, int c,File* file){
     }*/
   }
 
-  if(c == CONTROL_START)
+  /*if(c == CONTROL_START)
     printf("Receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
 
   if(c == CONTROL_END)
     printf("Finished receiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
 
-  printFileProps(file);
+  printFileProps(file);*/
   return SUCCESS;
 
 }

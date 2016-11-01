@@ -13,7 +13,9 @@ typedef struct {
 void atende_alarm(int signo);
 void desativa_alarm(void);
 int llopen(int flag);
+//Retorna numero de bytes enviados, ou -1 se exceder o tempo limite
 int llwrite(int fd, unsigned char* buf, int length);
+//Retorna numeros de bytes lidos, ou -1 se receber disc(fica em loop ate receber uma trama valida ou disc)
 int llread(int fd, unsigned char* buf);
 int llclose(int fd, int flag);
 int stuffData(unsigned char* buf, int arraySize,unsigned char* newBuf);
