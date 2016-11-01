@@ -25,6 +25,10 @@ int receiveFile(){
 
   file->fileStream = fopen(file->fileName,"wb");
 
+  int seq = 0;
+
+  receiveData(fd,seq,file);
+
   llclose(fd,RECEIVER);
 }
 
@@ -36,7 +40,62 @@ int sendFile(){
 
   sendControl(fd,CONTROL_START,file);
 
+  int seq = 0;
+
+  sendData(fd,seq,file->fileSize,0,file);
+
   llclose(fd,TRANSMITTER);
+}
+
+int sendData(int fd,int seq,int nbyte,int foffset,File* file){
+  unsigned char buf[MAX_SIZE*4];
+  int i = 0;
+
+  fseek(file->fileStream,foffset,SEEK_SET);
+  unsigned char* tempBuf = (unsigned char*) malloc(nbyte);
+  int nread = fread(tempBuf,sizeof(unsigned char),nbyte,file->fileStream);
+  fseek(file->fileStream,foffset,SEEK_SET);
+
+  buf[i++] = CONTROL_DATA;
+  buf[i++] = (unsigned char)seq;
+  int l1 = nread % 256;
+  int l2 = nread / 256;
+  buf[i++] = (unsigned char)l2;
+  buf[i++] = (unsigned char)l1;
+  memcpy(buf+i,tempBuf,nread);
+  i+= nread;
+  free(tempBuf);
+
+  int sent = llwrite(fd,buf,i);
+
+  if(sent < 0)
+    return FAILURE;
+  return SUCCESS;
+}
+
+int receiveData(int fd,int seq,File* file){
+  unsigned char buf[MAX_SIZE*4];
+  int messageSize = llread(fd,buf);
+  if(messageSize < 0)
+    return FAILURE;
+
+  int i = 0;
+
+  if (buf[i++] != CONTROL_DATA){
+    return FAILURE;
+  }
+  //Verifica se o pacote recebido é o proximo item da sequencia
+  if(buf[i++] != seq){
+    return FAILURE;
+  }
+  int l2 = (int)buf[i++];
+  int l1 = (int)buf[i++];
+  int nbyte = l1+256*l2;
+  unsigned char* tempBuf = (unsigned char*)malloc(nbyte);
+  memcpy(tempBuf,buf+i,nbyte);
+
+  fwrite(tempBuf,sizeof(unsigned char),nbyte,file->fileStream);
+
 }
 
 

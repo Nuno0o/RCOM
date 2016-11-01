@@ -9,7 +9,9 @@ File * loadFile();
 int sendControl(int fd,int c,File* file);
 //Preenche file com informaçao fornecida
 int receiveControl(int fd,int c, File* file);
-
-int sendData(int fd,File* file);
+//Envia pacote de data
+int sendData(int fd,int seq,int foffset,int nbyte,File* file);
+//Recebe pacote de data
+int receiveData(int fd,int seq,File* file);
 
 #endif
