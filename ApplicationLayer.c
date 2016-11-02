@@ -233,7 +233,7 @@ int sendControl(int fd,int c,File* file){
   //Colocaçao do TYPE de nome de ficheiro
   buf[i++] = CONTROL_TYPE_NAME;
   //Coloca nome de ficheiro num buffer
-  unsigned char* fileNameWithoutDir = basename((char*)file->fileName);
+  unsigned char* fileNameWithoutDir = (unsigned char*)basename((char*)file->fileName);
   //Colocaçao de LENGTH do nome de ficheiro
   buf[i++] = (unsigned char)strlen((char*)fileNameWithoutDir);
   //Colocaçao do nome de ficheiro
