@@ -52,7 +52,7 @@ int receiveFile(){
     }
     totalReceived += received;
     seq++;
-    printf("Received: %d/%d bytes\n",totalReceived,file->fileSize);
+    printf("Received: %d/%ld bytes\n",totalReceived,file->fileSize);
 
   }
 
@@ -107,7 +107,7 @@ int sendFile(){
     }else{
       totalSent += toSend;
       seq++;
-      printf("Sent: %d/%d bytes\n",totalSent,file->fileSize);
+      printf("Sent: %d/%ld bytes\n",totalSent,file->fileSize);
     }
   }
 
@@ -193,7 +193,7 @@ File * loadFile(){
   unsigned char * fileName = (unsigned char*)malloc(MAX_SIZE);
   printf("Insert file name: ");
   scanf("%s",fileName);
-  file = initFile(fileName,"rb");
+  file = initFile(fileName,(unsigned char*)"rb");
   if(file == NULL){
     printf("Error opening file \"%s\", exiting...\n",fileName);
     exit(1);
@@ -217,23 +217,23 @@ int sendControl(int fd,int c,File* file){
   buf[i++] = CONTROL_TYPE_SIZE;
   //Coloca tamanho do ficheiro num buffer de unsigned chars(cada unsigned char e um numero)
   unsigned char sizeInArray[20];
-  sprintf(sizeInArray,"%ld",file->fileSize);
+  sprintf((char*)sizeInArray,"%ld",file->fileSize);
   //Colocaçao do Length de tamanho de ficheiro
-  buf[i++] = strlen(sizeInArray);
+  buf[i++] = strlen((char*)sizeInArray);
   int j;
   //Colocaçao do tamanho de ficheiro
-  for(j = 0;j < strlen(sizeInArray);j++){
+  for(j = 0;j < strlen((char*)sizeInArray);j++){
     buf[i++] = sizeInArray[j];
   }
 
   //Colocaçao do TYPE de nome de ficheiro
   buf[i++] = CONTROL_TYPE_NAME;
   //Coloca nome de ficheiro num buffer
-  unsigned char* fileNameWithoutDir = basename(file->fileName);
+  unsigned char* fileNameWithoutDir = basename((char*)file->fileName);
   //Colocaçao de LENGTH do nome de ficheiro
-  buf[i++] = (unsigned char)strlen(fileNameWithoutDir);
+  buf[i++] = (unsigned char)strlen((char*)fileNameWithoutDir);
   //Colocaçao do nome de ficheiro
-  for(j = 0;j < strlen(fileNameWithoutDir);j++){
+  for(j = 0;j < strlen((char*)fileNameWithoutDir);j++){
     buf[i++] = fileNameWithoutDir[j];
   }
   if(c == CONTROL_START)
@@ -267,7 +267,7 @@ int receiveControl(int fd, int c,File* file){
       memcpy(value,buf+i,length);
       value[length] = 0;
       long int size = -1;
-      sscanf(value,"%ld",&size);
+      sscanf((char*)value,"%ld",&size);
       free(value);
       file->fileSize = size;
       i+= length;
@@ -285,7 +285,7 @@ int receiveControl(int fd, int c,File* file){
 
 
 
-int main(int argc, unsigned char** argv){
+int main(int argc, char** argv){
   signal(SIGALRM, atende_alarm);
 
 	if ( (argc < 3 || argc > 7) ||
@@ -307,7 +307,7 @@ int main(int argc, unsigned char** argv){
 		exit(1);
 	}
 
-  Llayer = createLinkLayer(argv[1], BAUDRATE_DEF, 0, ATTEMPTS_DEF, TIMEOUT_DEF, DATA_DEFAULT_SIZE);
+  Llayer = createLinkLayer((unsigned char*)argv[1], BAUDRATE_DEF, 0, ATTEMPTS_DEF, TIMEOUT_DEF, DATA_DEFAULT_SIZE);
 
   if (argc >= 4){
     int baudRate = atoi(argv[3]);

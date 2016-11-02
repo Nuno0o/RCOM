@@ -6,7 +6,7 @@
 
 File* initFile(unsigned char* fileName,unsigned char* fileMode){
     FILE* stream;
-    stream = fopen((char*)fileName,fileMode);
+    stream = fopen((char*)fileName,(char*)fileMode);
     if (stream == NULL){
         return NULL;
     }

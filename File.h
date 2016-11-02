@@ -13,4 +13,6 @@ typedef struct {
 
 File* initFile(unsigned char* fileName,unsigned char* fileMode);
 
+void printFileProps(File* file);
+
 #endif
