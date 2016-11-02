@@ -143,14 +143,13 @@ Trama* makeDataTrama(unsigned char *buf,int length,int toggle){
 
 int llwrite(int fd, unsigned char* buf, int length){
 	int receivedStop = FALSE;
-	//Number of bytes sent
-	int sent = 0;
+	
 	Trama* dataTrama;
 	while (!receivedStop && conta_alarm < Llayer->numTransmissions){
 		//Construcao da trama de dados a enviar
 		dataTrama = makeDataTrama(buf,length,Llayer->ls);
 		//Envio da trama
-		sent = writeToFd(fd,dataTrama->trama,dataTrama->length,DATA_TRAMA);
+		writeToFd(fd,dataTrama->trama,dataTrama->length,DATA_TRAMA);
 		//Liberta memoria
 		freeTrama(dataTrama);
 		//Aguarda resposta

@@ -4,9 +4,9 @@
 #include <unistd.h>
 #include "File.h"
 
-File* initFile(char* fileName,char* fileMode){
+File* initFile(unsigned char* fileName,unsigned char* fileMode){
     FILE* stream;
-    stream = fopen(fileName,fileMode);
+    stream = fopen((char*)fileName,fileMode);
     if (stream == NULL){
         return NULL;
     }
@@ -33,5 +33,5 @@ void printFileProps(File* file){
   printf("Fd: %d\n", file->fd);
   printf("Name: %s\n", file->fileName);
   printf("Mode: %s\n", file->fileMode);
-  printf("Size: %d\n", file->fileSize);
+  printf("Size: %ld\n", file->fileSize);
 }

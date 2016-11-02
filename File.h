@@ -11,6 +11,6 @@ typedef struct {
     unsigned char*           fileName;
 } File;
 
-File* initFile(char* fileName,char* fileMode);
+File* initFile(unsigned char* fileName,unsigned char* fileMode);
 
 #endif

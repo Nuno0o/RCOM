@@ -33,9 +33,9 @@ int receiveFile(){
 
   if(receiveControl(fd,CONTROL_START,file) < 0){
     printf("Error receiving CONTROL_START:timed out\n");
-  }else printf("CONTROL_START received successfully.\nReceiving file \"%s\"(%d bytes)\n",file->fileName,file->fileSize);
+}else printf("CONTROL_START received successfully.\nReceiving file \"%s\"(%ld bytes)\n",file->fileName,file->fileSize);
 
-  file->fileStream = fopen(file->fileName,"wb");
+  file->fileStream = fopen((char*)file->fileName,"wb");
 
   //numero na sequencia a ser enviada
   int seq = 0;
