@@ -323,7 +323,7 @@ int main(int argc, char** argv){
   }
   if (argc >= 5){
     int maxAttempts = atoi(argv[4]);
-    if (setMaxAttempts(maxAttempts,Llayer) != SUCCESS) return FAILURE;
+    if (setMaxAttempts(maxAttempts+1,Llayer) != SUCCESS) return FAILURE;
   }
   if (argc >= 6){
     int timeout = atoi(argv[5]);

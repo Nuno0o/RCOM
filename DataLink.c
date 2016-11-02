@@ -39,7 +39,8 @@ Statistics stats;
 void atende_alarm(int signo){
 	flag_alarm = ALARM_AWAKE;
 	conta_alarm++;
-	printf("Retrying %d...\n",conta_alarm);
+	if(conta_alarm != Llayer->timeout+1)
+		printf("Retrying %d...\n",conta_alarm);
 	stats.n_timeOuts++;
 	alarm(ALARM_NOT_AWAKE);
 }
