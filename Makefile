@@ -19,6 +19,6 @@ bin/ApplicationLayer.o: ApplicationLayer.c ApplicationLayer.h
 	cc -c ApplicationLayer.c -o bin/ApplicationLayer.o -Wall
 
 clean:
-	-rm bin/AppLayer bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o
+	-rm bin/AppLayer bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o
 
 .PHONY: all clean
