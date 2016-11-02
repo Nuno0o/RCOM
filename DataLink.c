@@ -29,6 +29,7 @@ int flag_alarm = ALARM_NOT_AWAKE;
 int conta_alarm = 0;
 int num = 1;
 
+Statistics stats;
 
 
 // ----------------------------------------------------------
@@ -39,6 +40,7 @@ void atende_alarm(int signo){
 	flag_alarm = ALARM_AWAKE;
 	conta_alarm++;
 	printf("Retrying %d...\n",conta_alarm);
+	stats.n_timeOuts++;
 	alarm(ALARM_NOT_AWAKE);
 }
 
@@ -55,6 +57,10 @@ void desativa_alarm(void) {
 // ------------------------- LL OPEN -------------------------
 int llopen(int flag)
 {
+	stats.rr_sent = 0;
+	stats.rej_sent = 0;
+	stats.errors = 0;
+	stats.n_timeOuts = 0;
 	// Instalar Alarme
 	siginterrupt(SIGALRM, TRUE);
 
@@ -143,7 +149,7 @@ Trama* makeDataTrama(unsigned char *buf,int length,int toggle){
 
 int llwrite(int fd, unsigned char* buf, int length){
 	int receivedStop = FALSE;
-	
+
 	Trama* dataTrama;
 	while (!receivedStop && conta_alarm < Llayer->numTransmissions){
 		//Construcao da trama de dados a enviar
@@ -162,12 +168,14 @@ int llwrite(int fd, unsigned char* buf, int length){
 
 			//Se receber rej correspondente ao L(s) atual, reenvia mensagem(bytesSent nao incrementa, logo a mesma e enviada)
 			if (((received->tipo == TRAMA_REJ1) && (Llayer->ls == 0)) || ((received->tipo == TRAMA_REJ0) && (Llayer->ls == 1))){
+				stats.rej_sent++;
 				desativa_alarm();
 				freeTrama(received);
 				break;
 			}
 			//Se receber rr correspondente ao L(s) atual,altera L(s) e retorna
 			else if (((received->tipo == TRAMA_RR0) && (Llayer->ls == 1)) || ((received->tipo == TRAMA_RR1) && (Llayer->ls == 0))){
+				stats.rr_sent++;
 				desativa_alarm();
 				Llayer->ls = !(Llayer->ls);
 				receivedStop = TRUE;
@@ -194,20 +202,30 @@ int llread(int fd, unsigned char* buf){
 	while(!receivedStop){
 	  tramaRecebida = receiveTrama(fd);
 		//Se detetar erro no bcc1 nao faz nada
+		if(Llayer->sendRandomRejs){
+			int shouldISend = rand() % 4;
+			if(shouldISend == 3){
+				tramaRecebida->tipo = TRAMA_ERROR2;
+			}
+		}
 		if(tramaRecebida->tipo == TRAMA_DISC){
 			return -1;
 		}
 		else if(tramaRecebida->tipo == TRAMA_ERROR){
-			;
+			stats.errors++;
 		}
 		//Se detetar erro no bcc2 envia REJ
 		else if(tramaRecebida->tipo == TRAMA_ERROR2){
+
+
+			stats.rej_sent++;
 
 			if(Llayer->ls == 1){
 				writeToFd(fd,REJ0,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 			}else writeToFd(fd,REJ1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 
 		}else if(tramaRecebida->tipo == TRAMA_I_0 || tramaRecebida->tipo == TRAMA_I_1){
+			stats.rr_sent++;
 			if(tramaRecebida->tipo == TRAMA_I_0){
 				writeToFd(fd,RR1,CONTROL_TRAMA_SIZE,CONTROL_TRAMA);
 				Llayer->ls = 1;
@@ -469,4 +487,11 @@ void freeTrama(Trama* trama){
 	free(trama->trama);
 	trama->trama = NULL;
 	free(trama);
+}
+
+void printStatsReceiver(){
+	printf("RR packets: %d\nREJ packets: %d\nErrors: %d\n",stats.rr_sent,stats.rej_sent,stats.errors);
+}
+void printStatsTransmitter(){
+	printf("RR packets: %d\nREJ packets: %d\nTimeOuts: %d\n",stats.rr_sent,stats.rej_sent,stats.n_timeOuts);
 }

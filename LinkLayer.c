@@ -12,6 +12,7 @@ LinkLayer* createLinkLayer(unsigned char* port, int baudRate, int sequenceNumber
   retorno->numTransmissions = numTransmissions;
   retorno->ls = 0;
   retorno->maxSize = maxSize;
+  retorno->sendRandomRejs = 0;
   return retorno;
 }
 

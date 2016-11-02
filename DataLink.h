@@ -1,6 +1,8 @@
 #ifndef DATALINK_H
 #define DATALINK_H
 
+
+
 typedef enum { DATA_TRAMA, CONTROL_TRAMA } TramaType;
 
 typedef struct {
@@ -8,6 +10,13 @@ typedef struct {
     unsigned char* trama;
     int length;
 } Trama;
+
+typedef struct{
+    int rr_sent;
+    int rej_sent;
+    int errors;
+    int n_timeOuts;
+}Statistics;
 
 
 void atende_alarm(int signo);
@@ -24,5 +33,7 @@ int writeToFd(int filed,unsigned char* buf,int length, TramaType type);
 Trama* receiveTrama(int fd);
 int writeTramaToFd(int fd, unsigned char* trama, int length, int requiresStuffing);
 void freeTrama(Trama* trama);
+void printStatsReceiver();
+void printStatsTransmitter();
 
 #endif

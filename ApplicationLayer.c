@@ -14,6 +14,7 @@
 #include "File.h"
 #include "ApplicationLayer.h"
 #include "libgen.h"
+#include "time.h"
 
 LinkLayer* Llayer;
 
@@ -70,6 +71,8 @@ int receiveFile(){
     perror("Closing attempt failed. Exiting...\n");
     exit(FAILURE);
   }else printf("Successfully closed connection.\n");
+  printFileProps(file);
+  printStatsReceiver();
   return SUCCESS;
 }
 
@@ -125,6 +128,7 @@ int sendFile(){
     perror("Closing attempt failed. Exiting...\n");
     exit(FAILURE);
   }else printf("Successfully closed connection.\n");
+  printStatsTransmitter();
   return SUCCESS;
 }
 
@@ -286,12 +290,13 @@ int receiveControl(int fd, int c,File* file){
 
 
 int main(int argc, char** argv){
-  signal(SIGALRM, atende_alarm);
+    srand(time(NULL));
+    signal(SIGALRM, atende_alarm);
 
-	if ( (argc < 3 || argc > 7) ||
+	if ( argc != 8 ||
 	((strcmp("/dev/ttyS0", argv[1])!=0) &&
-	(strcmp("/dev/ttyS1", argv[1])!=0) )) {
-		printf("Usage:\n[/dev/ttyS0 || /dev/ttyS1] [TRANSMITTER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT] [MAX_TRAMA_SIZE]\n[/dev/ttyS0 || /dev/ttyS1] [RECEIVER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT]\n");
+	(strcmp("/dev/ttyS1", argv[1])!=0))) {
+		printf("Usage:\n[/dev/ttyS0 || /dev/ttyS1] [TRANSMITTER|RECEIVER] [int BAUDRATE] [int MAX_ATTEMPTS] [int TIMEOUT] [int MAX_TRAMA_SIZE] [bool SEND_RANDOM_REJ]\n");
 		exit(1);
 	}
 
@@ -330,6 +335,14 @@ int main(int argc, char** argv){
       printf("Too big MAX_TRAMA_SIZE(0-256)\n");
       return FAILURE;
     }
+  }
+  if(argc >= 8){
+      int sendRej = atoi(argv[7]);
+      if(sendRej != 1 && sendRej != 0){
+          printf("Send REJ has to be 1 or 0");
+          return FAILURE;
+      }
+      Llayer->sendRandomRejs = sendRej;
   }
 
   if(transorres == TRANSMITTER){

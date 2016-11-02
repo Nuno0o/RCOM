@@ -12,6 +12,7 @@ typedef struct {
     unsigned char frame[MAX_SIZE];
     int ls;
     unsigned int maxSize;
+    unsigned int sendRandomRejs;
 } LinkLayer;
 
 LinkLayer* createLinkLayer(unsigned char* port, int baudRate, int sequenceNumber,unsigned int timeout,unsigned int numTransmissions,  unsigned int maxSize);
