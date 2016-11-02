@@ -42,7 +42,7 @@ int receiveFile(){
   int totalReceived = 0;
 
   while(totalReceived < file->fileSize){
-    int received = receiveData(fd,seq,file);
+    int received = receiveData(fd,seq % Llayer->maxSize,file);
     //Se for repetido
     if(received == 0){
       continue;
@@ -166,11 +166,12 @@ int receiveData(int fd,int seq,File* file){
     return FAILURE;
   }
   //Verifica se o pacote recebido é o proximo item da sequencia
-  if(buf[i++] != (unsigned char)seq % Llayer->maxSize){
-    if(buf[i++] == (unsigned char)seq -1)
+  if(buf[i] != (unsigned char)seq){
+    if(buf[i] == (unsigned char)seq -1)
       return 0;
     else return FAILURE;
   }
+  i++;
   int l2 = (int)buf[i++];
   int l1 = (int)buf[i++];
   int nbyte = l1+256*l2;
