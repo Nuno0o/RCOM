@@ -13,7 +13,6 @@ LinkLayer* createLinkLayer(unsigned char* port, int baudRate, int sequenceNumber
   retorno->ls = 0;
   retorno->maxSize = maxSize;
   return retorno;
-
 }
 
 int setBaudrate(int baudrate, LinkLayer* linkLayer){
@@ -54,7 +53,7 @@ int setTimeout(int timeout, LinkLayer* linkLayer){
 }
 
 int setMaxSize(int maxSize, LinkLayer* linkLayer){
-  if (maxSize > 0){
+  if (maxSize > 0 && maxSize <= 256){
     linkLayer->maxSize = maxSize; return SUCCESS;
   }
   return FAILURE;

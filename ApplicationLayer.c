@@ -98,10 +98,10 @@ int sendFile(){
 
   while(totalSent < file->fileSize){
     int toSend;
-    if(file->fileSize - totalSent > DATA_DEFAULT_SIZE){
-      toSend = DATA_DEFAULT_SIZE;
+    if(file->fileSize - totalSent > Llayer->maxSize){
+      toSend = Llayer->maxSize;
     }else toSend = file->fileSize - totalSent;
-    if(sendData(fd,seq % DATA_DEFAULT_SIZE,toSend,totalSent,file) < 0){
+    if(sendData(fd,seq % Llayer->maxSize,toSend,totalSent,file) < 0){
       printf("Error sending DATA:timed out\n");
       exit(1);
     }else{
@@ -166,7 +166,7 @@ int receiveData(int fd,int seq,File* file){
     return FAILURE;
   }
   //Verifica se o pacote recebido é o proximo item da sequencia
-  if(buf[i++] != (unsigned char)seq){
+  if(buf[i++] != (unsigned char)seq % Llayer->maxSize){
     if(buf[i++] == (unsigned char)seq -1)
       return 0;
     else return FAILURE;
@@ -290,7 +290,7 @@ int main(int argc, unsigned char** argv){
 	if ( (argc < 3 || argc > 7) ||
 	((strcmp("/dev/ttyS0", argv[1])!=0) &&
 	(strcmp("/dev/ttyS1", argv[1])!=0) )) {
-		printf("Usage:\tnserial SerialPort MODE\n\tex: nserial /dev/ttyS1 [TRANSMITTER|RECEIVER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT] [MAX_TRAMA_SIZE]\n");
+		printf("Usage:\n[/dev/ttyS0 || /dev/ttyS1] [TRANSMITTER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT] [MAX_TRAMA_SIZE]\n[/dev/ttyS0 || /dev/ttyS1] [RECEIVER] [BAUDRATE] [MAX_ATTEMPTS] [TIMEOUT]\n");
 		exit(1);
 	}
 
@@ -310,7 +310,10 @@ int main(int argc, unsigned char** argv){
 
   if (argc >= 4){
     int baudRate = atoi(argv[3]);
-    if (setBaudrate(baudRate, Llayer) != SUCCESS) return FAILURE;
+    if (setBaudrate(baudRate, Llayer) != SUCCESS){
+      printf("Unavaillable BAUDRATE\n");
+      return FAILURE;
+    }
   }
   if (argc >= 5){
     int maxAttempts = atoi(argv[4]);
@@ -321,8 +324,11 @@ int main(int argc, unsigned char** argv){
     if (setTimeout(timeout, Llayer) != SUCCESS) return FAILURE;
   }
   if (argc >= 7){
-    int maxSize = atoi(argv[4]);
-    if (setMaxSize(maxSize,Llayer) != SUCCESS) return FAILURE;
+    int maxSize = atoi(argv[6]);
+    if (setMaxSize(maxSize,Llayer) != SUCCESS){
+      printf("Too big MAX_TRAMA_SIZE(0-256)\n");
+      return FAILURE;
+    }
   }
 
   if(transorres == TRANSMITTER){
