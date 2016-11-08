@@ -1,4 +1,4 @@
-emissor envia 1 trama de dados e espera confirmacao:
+emissor envia 1 trama de dados e espera confirmacao:  
 	 - se recebe confirmacao positiva, retorna;
 	- se nao recebe confirmacao dentro do timeout, reenvia ate n vezes;
 	- se recebe confirmacao negativa reenvia
