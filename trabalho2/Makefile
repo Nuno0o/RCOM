@@ -1,24 +1,21 @@
-all: bin/AppLayer
+all: bin/download
 
-bin/AppLayer: bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o
-	cc -o bin/AppLayer bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o -Wall
+bin/parseURL.o: parseURL.c parseURL.h defines.h
+	cc -c parseURL.c -o bin/parseURL.o -Wall
 
-bin/DataLink.o: DataLink.c DataLink.h File.h LinkLayer.h defines.h termiosManip.h
-	cc -c DataLink.c -o bin/DataLink.o -Wall
+bin/ipHandling.o: ipHandling.c ipHandling.h 
+	cc -c ipHandling.c -o bin/ipHandling.o -Wall
 
-bin/termiosManip.o: termiosManip.c termiosManip.h defines.h
-	cc -c termiosManip.c -o bin/termiosManip.o -Wall
+bin/clientFTP.o: clientFTP.c clientFTP.h defines.h
+	cc -c clientFTP.c -o bin/clientFTP.o -Wall
 
-bin/LinkLayer.o: LinkLayer.c LinkLayer.h
-	cc -c LinkLayer.c -o bin/LinkLayer.o -Wall
+bin/download.o: download.c defines.h parseURL.h ipHandling.h clientFTP.h
+	cc -c download.c -o bin/download.o -Wall
 
-bin/File.o: File.c File.h
-	cc -c File.c -o bin/File.o -Wall
-
-bin/ApplicationLayer.o: ApplicationLayer.c ApplicationLayer.h
-	cc -c ApplicationLayer.c -o bin/ApplicationLayer.o -Wall
+bin/download: bin/parseURL.o bin/ipHandling.o bin/clientFTP.o bin/download.o
+	cc -o bin/download bin/parseURL.o bin/ipHandling.o bin/clientFTP.o bin/download.o -Wall
 
 clean:
-	-rm bin/AppLayer bin/DataLink.o bin/termiosManip.o bin/LinkLayer.o bin/File.o bin/ApplicationLayer.o
+	-rm bin/parseURL.o bin/ipHandling.o bin/clientFTP.o -rm bin/download.o
 
 .PHONY: all clean

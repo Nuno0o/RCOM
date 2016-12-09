@@ -7,7 +7,7 @@ char* initIp (parsedURL* url) {
 
   struct hostent* h;
 
-  if ((h=gethostbyname(argv[1])) == NULL) {
+  if ((h=gethostbyname(url->host)) == NULL) {
       herror("gethostbyname");
       return NULL;
   }
