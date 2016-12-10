@@ -18,5 +18,5 @@ int ftpDisconnect(int sockfd);
 int ftpToPassive(int sockfd);
 int ftpWriteCmdAndReadReplay(int sockfd, char* cmd, char* replyBuf, char* args);
 int ftpToRetr(int sockfd, char* path);
-int ftpDownload(int sockfd, char* path);
+int ftpDownload(int datafd, int sockfd, char* path);
 int ftpLogin(int sockfd, char* username, char* pwd);

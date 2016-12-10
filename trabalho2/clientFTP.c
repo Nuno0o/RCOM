@@ -1,10 +1,9 @@
 /*      (C)2000 FEUP  */
 
 #include "clientFTP.h"
+#include <libgen.h>
 
-#define SERVER_PORT 6000
-#define SERVER_ADDR "192.168.28.96"
-#define SIZE 512
+#define SIZE 1024
 
 int connectSocket(const char* ip, int port){
 
@@ -37,12 +36,15 @@ int connectSocket(const char* ip, int port){
 int ftpConnect(const char* ip, int port){
 	int sockfd=connectSocket(ip,port);
 
+
 	if(sockfd<0){
-		printf("error connecting to socket.\n");
 		return -1;
 	}
 	else{
-		printf("connect succesful");
+		char buff[SIZE];
+		if (ftpRead(sockfd, buff, sizeof(buff)) < 0){
+			return 1;		
+		}
 	}
 	return sockfd;
 }
@@ -51,24 +53,25 @@ int ftpConnect(const char* ip, int port){
 int ftpWrite(int sockfd,char * buff,int size){
 	int n;
 	if((n=write(sockfd,buff,size))==size){
-	   	printf("write succeded");
 		return 0;
 	}
-	else
-	return -1;
+	else {
+		printf("... write failed ...\n");
+		return -1;
+	}
+
 }
 
 int ftpRead(int sockfd,char * buff,int size){
 	FILE *socketPtr;
 	if((socketPtr=fdopen(sockfd,"r"))==NULL){
-		printf("fdopen failed");
+		printf("Failed to open socket (fdopen())");
 		return -1;
 	}
 	do{
 		memset(buff,0,size);
 			buff=fgets(buff,size,socketPtr);
 		}while(!(buff[0]>='1' && buff[0]<='5'));
-
 	return 0;
 }
 
@@ -86,32 +89,36 @@ int ftpToPassive(int sockfd) {
 		return 1;
 
 	unsigned int ip_oct1, ip_oct2, ip_oct3, ip_oct4, port_pt1, port_pt2;
-	if(sscanf(replyBuf, "Going Passive %u.%u.%u.%u,%u/%u)\n", &ip_oct1, &ip_oct2, &ip_oct3, &ip_oct4, &port_pt1, &port_pt2) < 0)
+	if(sscanf(replyBuf, "227 Entering Passive Mode (%u,%u,%u,%u,%u,%u)\n", &ip_oct1, &ip_oct2, &ip_oct3, &ip_oct4, &port_pt1, &port_pt2) < 0)
 	{
 		close(sockfd);
 		return 1;
 	}
 
-	char* ip;
-
+	char ip[ 3*4 + 4];
 	sprintf(ip, "%u.%u.%u.%u", ip_oct1, ip_oct2, ip_oct3, ip_oct4);
 
+	printf("IP at host: %s\n", ip);
+
 	int port=256*port_pt1+port_pt2;
-	if(connectSocket(ip,port)!=0){
+	
+	int datafd;
+	
+	if((datafd = connectSocket(ip,port)) == -1){
 		close(sockfd);
 		return -1;
 	}
-	return 0;
+	return datafd;
 }
 
 int ftpWriteCmdAndReadReplay(int sockfd, char* cmd, char* replyBuf, char* args){
 	char msg[SIZE];
-	sprintf(msg, "%s %s", cmd, args);
-	if (ftpWrite(sockfd, msg, sizeof(msg)) != 0) {
+	sprintf(msg, "%s %s\r\n", cmd, args);
+	if (ftpWrite(sockfd, msg, strlen(msg)) != 0) {
 		close(sockfd);
 		return 1;
 	}
-	if(ftpRead(sockfd, replyBuf, sizeof(msg)) != 0) {
+	if(ftpRead(sockfd, replyBuf, SIZE) != 0) {
 		close(sockfd);
 		return 1;
 	}
@@ -125,7 +132,7 @@ int ftpToRetr(int sockfd, char* path) {
 	return 0;
 }
 
-int ftpDownload(int sockfd, char* path){
+int ftpDownload(int datafd, int sockfd, char* path){
 
 	if (ftpToRetr(sockfd, path) != 0) {
 		close(sockfd);
@@ -133,15 +140,18 @@ int ftpDownload(int sockfd, char* path){
 	}
 
 	FILE* file;
+	char* fileName;
+	fileName = basename(path);
 
-	if (!(file = fopen(path,"w")))	 {
+
+	if (!(file = fopen(fileName,"w"))){
 		return 1;
 	}
-
+	
 	char data[SIZE];
 	int readData;
 
-	while (( readData = read(sockfd, data, sizeof(data)))){
+	while (( readData = read(datafd, data, sizeof(data)))){
 		if (readData < 0){
 			return 1;
 		}
@@ -149,7 +159,7 @@ int ftpDownload(int sockfd, char* path){
 	}
 
 	fclose(file);
-	close(sockfd);
+	close(datafd);
 	return 0;
 }
 
@@ -157,7 +167,21 @@ int ftpLogin(int sockfd, char* username, char* pwd) {
 	char replyBuf[SIZE];
 	if (ftpWriteCmdAndReadReplay(sockfd, "USER", replyBuf, username) < 0)
 		return 1;
+
+	memset(replyBuf, 0, sizeof(replyBuf));
+
 	if (ftpWriteCmdAndReadReplay(sockfd, "PASS", replyBuf, pwd) < 0)
 		return 1;
+
+	char reply[4];
+	strncpy(reply, replyBuf, 3);
+	reply[4] = '\0';
+	char goodReply[4] = "230";
+
+	if (strncmp(reply, goodReply, strlen(goodReply)) != 0) {
+		printf("Login failed with those credentials.\n");
+		return 1;	
+	}
+
 	return 0;
 }

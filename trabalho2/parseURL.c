@@ -7,8 +7,8 @@
 
 //Inicializa struct
 void initParsed(parsedURL * parsed){
-    parsed->username = NULL;
-    parsed->password = NULL;
+    parsed->username = "anonymous";
+    parsed->password = "guest";
     parsed->ip = NULL;
     parsed->host = NULL;
     parsed->path = NULL;
