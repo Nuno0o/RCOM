@@ -1,0 +1,107 @@
+Experiencia 1
+
+P1 - What are the ARP packets and what are they used for?
+Blocos de informa��o usados para obter o endere�o MAC de um IP.
+
+P2 - What are the MAC and IP addresses of ARP packets and why?
+Endere�o MAC � um identificador �nico associado a uma network interface.
+Endere�o IP � uma etiqueta num�rica associada a cada dispositivo de uma dada rede de computadores que segue o protocolo de internet (IP - Internet Protocol)
+
+P3 - What packets does the ping command generate?
+ICMP packets.
+
+P4 - What are the MAC and IP addresses of the ping packets?
+Endere�os MAC e IP do receptor e transmissor.
+
+P5 - How to determine if a receiving Ethernet frame is ARP, IP, ICMP?
+A partir do header.
+Ethernet Header: ARP (0x0806), IP (0x0800). 
+IP Header: ICMP (1).
+
+P6 - How to determine the length of a receiving frame?
+A length est� especificada no campo length do frame recebido.
+
+P7 - What is the loopback interface and why is it important?
+It's important because it has an ego complex :D
+
+Experiencia 2:
+
+P1 - How to configure vlan40?
+> Open Gtkterm
+> Switch to root
+> write the following commands:
+ 	> configure terminal
+	> vlan 40
+	> end
+> Configure the ports. For chosen ports, do:
+	> configure terminal
+	> interface fastethernet 0/[PORT NUMBER]
+	> switchport mode access
+	> switchport access vlan 40
+	> end
+
+P2 - How many broadcast domains are there? How can you conclude it from
+the logs?
+1 broadcast domain.By examining how many ARP packets are sent.
+
+Experiencia 3:
+
+P1 - What routes are there in the tuxes? What are their meaning?
+There is 1 route in tux1 and 1 route in tux2.They both set a route through tux4 to each other.
+
+P2 - What information does an entry of the forwarding table contain? 
+The forwarding table maps Mac addresses to ports.
+
+P3 - What ARP messages, and associated MAC addresses, are observed and why?
+-------------.
+
+P4 - What ICMP packets are observed and why?
+Pings from/to the tuxes to/from the switch.
+
+P5 - What are the IP and MAC addresses associated to ICMP packets and why?
+The ip addresses of the respective tuxes, and the MAC address of the tux/switch(not sure).
+
+Experiencia 4:
+
+P1 - How to configure a static route in a commercial router?
+> Open Gtkterm
+> Switch to root
+> write the following command:
+ip route prefix mask {ip-address | interface-type interface-number [ip-address]} 
+
+P2 - What are the paths followed by the packets in the experiments carried out and why?
+???
+
+Experiencia 5:
+
+P1 - How to configure the DNS service at an host?
+Open "/etc/resolv.conf" and type:
+	search <hostname>
+ 	nameserver <hostip>
+
+ex:search netlab.fe.up.pt
+ 	nameserver 172.16.1.1
+
+Experiencia 6:
+
+P1 - How many TCP connections are opened by your ftp application?
+2 connections.
+
+P2 - In what connection is transported the FTP control information?
+In the first connection(tcp control connection).
+
+P3 - What are the phases of a TCP connection?
+Establishment, data and termination.
+
+P4 - How does the ARQ TCP mechanism work? What are the relevant TCP fields? What relevant information can be observed in the logs?
+Every time the receiver receives data, it sends messages back saying the data was received successfully, having a timeout period.
+The one used on the TCP connection is Selecive Repeat ARQ, which allows multiple packets to be sent without being acknoledged.
+The acknoledgment number.
+It can be observed that multiple packets are received in a succession that are not the same.
+
+P5 - How does the TCP congestion control mechanism work? What are the relevant fields. How did the throughput of the data connection evolve along the time? Is it according the TCP congestion control mechanism?
+It limits the number of unacknowledged packets traveling at a given time.
+???
+
+P6 - Is the throughput of a TCP data connections disturbed by the appearance of a second TCP connection? How?
+???
