@@ -16,6 +16,6 @@ bin/download: bin/parseURL.o bin/ipHandling.o bin/clientFTP.o bin/download.o
 	cc -o bin/download bin/parseURL.o bin/ipHandling.o bin/clientFTP.o bin/download.o -Wall
 
 clean:
-	-rm bin/parseURL.o bin/ipHandling.o bin/clientFTP.o -rm bin/download.o
+	-rm bin/parseURL.o bin/ipHandling.o bin/clientFTP.o bin/download.o bin/download
 
 .PHONY: all clean
